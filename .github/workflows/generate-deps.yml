@@ -8,7 +8,7 @@ jobs:
       - name: 'Generate Dependencies Action'
         uses: thedave42/generate-dependencies-csv-action@v6
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token: ${{ secrets.DEP_GITHUB_TOKEN }}
           org-name: customer-success-architects
           depth: 4
           repo-names: angular
