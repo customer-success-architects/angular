@@ -10,5 +10,5 @@ jobs:
         with:
           repo-token: ${{ secrets.DEP_GITHUB_TOKEN }}
           org-name: customer-success-architects
-          depth: 4
+          depth: 1
           repo-names: angular
