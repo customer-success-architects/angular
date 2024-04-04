@@ -6,10 +6,9 @@ workflow_call:
 
 jobs:
   build:
-    name: Build
     runs-on: ubuntu-20.04
   steps:
-  - name: Generate Dependencies Action
+  - name: 'Generate Dependencies Action'
     uses: thedave42/generate-dependencies-csv-action@v6
     with:
       repo-token: ${{ secrets.GITHUB_TOKEN }}
