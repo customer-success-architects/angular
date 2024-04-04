@@ -6,7 +6,8 @@ workflow_call:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    name: Build
+    runs-on: ubuntu-latest
     steps:
       - name: 'Generate Dependencies Action'
         uses: thedave42/generate-dependencies-csv-action@v6
