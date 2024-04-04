@@ -3,7 +3,7 @@ on: workflow_dispatch
 jobs:
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: 'Generate Dependencies Action'
         uses: thedave42/generate-dependencies-csv-action@v6
