@@ -1,8 +1,8 @@
-load("//tools:defaults.bzl", "api_golden_test_npm_package", "ng_package", "ts_library")
+load("//tools:defaults.bzl", "api_golden_test_npm_package", "generate_api_docs", "ng_package", "ts_project")
 
 package(default_visibility = ["//visibility:public"])
 
-ts_library(
+ts_project(
     name = "localize",
     srcs = glob(
         [
@@ -10,7 +10,6 @@ ts_library(
             "src/**/*.ts",
         ],
     ),
-    module_name = "@angular/localize",
     deps = [
         "//packages/localize/src/localize",
         "//packages/localize/src/utils",
@@ -18,7 +17,6 @@ ts_library(
 )
 
 ng_package(
-    name = "npm_package",
     srcs = [
         "package.json",
     ],
@@ -26,11 +24,12 @@ ng_package(
         "//packages/localize/schematics:npm_package",
         "//packages/localize/tools:npm_package",
     ],
-    skip_type_bundling = [
-        # For the "init" entry-point we disable type bundling because API extractor
-        # does not properly handle module augumentation.
-        # TODO: Remove once https://github.com/microsoft/rushstack/issues/2090 is solved.
-        "init",
+    package = "@angular/localize",
+    replace_prefixes = {
+        "tools/npm_package": "tools",
+    },
+    side_effect_entry_points = [
+        "@angular/localize/init",
     ],
     tags = [
         "release-with-framework",
@@ -47,12 +46,30 @@ api_golden_test_npm_package(
         ":npm_package",
         "//goldens:public-api",
     ],
-    golden_dir = "angular/goldens/public-api/localize",
-    npm_package = "angular/packages/localize/npm_package",
+    golden_dir = "goldens/public-api/localize",
+    npm_package = "packages/localize/npm_package",
     # The logic for the localize function is exported in the primary entry-point, but users
     # are not supposed to import it from there. We still want to guard these exports though.
     strip_export_pattern = "^ɵ(?!.localize|LocalizeFn|TranslateFn)",
-    # The tool entry-point uses namespace aliases and API extractor needs to be
-    # able to resolve `@babel/core` to fully understand the `types` re-export/alias.
-    types = ["@npm//@types/babel__core"],
+    types = {
+        "//:node_modules/@types/babel__core": "babel",
+    },
+)
+
+filegroup(
+    name = "files_for_docgen",
+    srcs = glob([
+        "*.ts",
+        "src/**/*.ts",
+    ]) + ["PACKAGE.md"],
+)
+
+generate_api_docs(
+    name = "localize_docs",
+    srcs = [
+        ":files_for_docgen",
+        "//packages/localize/src/utils:files_for_docgen",
+    ],
+    entry_point = ":index.ts",
+    module_name = "@angular/localize",
 )

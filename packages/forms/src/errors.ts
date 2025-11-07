@@ -3,7 +3,7 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
 /**
@@ -11,7 +11,6 @@
  * Reserved error code range: 1000-1999.
  */
 export const enum RuntimeErrorCode {
-
   // Structure validation errors (10xx)
   NO_CONTROLS = 1000,
   MISSING_CONTROL = 1001,
@@ -31,11 +30,11 @@ export const enum RuntimeErrorCode {
   NG_VALUE_ACCESSOR_NOT_PROVIDED = 1200,
   COMPAREWITH_NOT_A_FN = 1201,
   NAME_AND_FORM_CONTROL_NAME_MUST_MATCH = 1202,
+  NG_MISSING_VALUE_ACCESSOR = -1203,
 
   // Template-driven Forms errors (1350-1399)
   NGMODEL_IN_FORM_GROUP = 1350,
   NGMODEL_IN_FORM_GROUP_NAME = 1351,
   NGMODEL_WITHOUT_NAME = 1352,
   NGMODELGROUP_IN_FORM_GROUP = 1353,
-
 }

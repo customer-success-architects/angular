@@ -3,11 +3,20 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
 import {NgForOfContext} from '@angular/common';
-import {ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, NgModule, TemplateRef, ViewChild} from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  Input,
+  NgModule,
+  provideZoneChangeDetection,
+  TemplateRef,
+  ViewChild,
+} from '@angular/core';
 import {BrowserModule} from '@angular/platform-browser';
 
 import {newArray} from '../util';
@@ -17,7 +26,8 @@ import {newArray} from '../util';
   template: `
     <ng-container *ngFor="let n of views; template: template; trackBy: trackByIndex"></ng-container>
   `,
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: false,
 })
 export class InsertionComponent {
   @Input() template!: TemplateRef<NgForOfContext<any, any[]>>;
@@ -38,9 +48,10 @@ export class InsertionComponent {
 @Component({
   selector: 'declaration-component',
   template: `
-  <ng-template #template>{{trackTemplateRefresh()}}</ng-template>
-  <insertion-component [template]="template" [viewCount]="viewCount"></insertion-component>
+    <ng-template #template>{{ trackTemplateRefresh() }}</ng-template>
+    <insertion-component [template]="template" [viewCount]="viewCount"></insertion-component>
   `,
+  standalone: false,
 })
 export class DeclarationComponent {
   @Input() viewCount = 1;
@@ -57,7 +68,7 @@ export class DeclarationComponent {
 @NgModule({
   declarations: [DeclarationComponent, InsertionComponent],
   bootstrap: [DeclarationComponent],
-  imports: [BrowserModule]
+  providers: [provideZoneChangeDetection()],
+  imports: [BrowserModule],
 })
-export class TransplantedViewsModule {
-}
+export class TransplantedViewsModule {}

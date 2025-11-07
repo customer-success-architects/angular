@@ -3,24 +3,43 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
-import {DOCUMENT, LocationChangeEvent, LocationChangeListener, PlatformLocation, ɵgetDOM as getDOM} from '@angular/common';
-import {Inject, Injectable, Optional} from '@angular/core';
+import {
+  DOCUMENT,
+  LocationChangeEvent,
+  LocationChangeListener,
+  PlatformLocation,
+  ɵgetDOM as getDOM,
+} from '@angular/common';
+import {inject, Injectable, ɵWritable as Writable} from '@angular/core';
 import {Subject} from 'rxjs';
-import * as url from 'url';
-import {INITIAL_CONFIG, PlatformConfig} from './tokens';
 
-function parseUrl(urlStr: string) {
-  const parsedUrl = url.parse(urlStr);
+import {INITIAL_CONFIG} from './tokens';
+
+function parseUrl(
+  urlStr: string,
+  origin: string,
+): {
+  hostname: string;
+  protocol: string;
+  port: string;
+  pathname: string;
+  search: string;
+  hash: string;
+  href: string;
+} {
+  const {hostname, protocol, port, pathname, search, hash, href} = new URL(urlStr, origin);
+
   return {
-    hostname: parsedUrl.hostname || '',
-    protocol: parsedUrl.protocol || '',
-    port: parsedUrl.port || '',
-    pathname: parsedUrl.pathname || '',
-    search: parsedUrl.search || '',
-    hash: parsedUrl.hash || '',
+    hostname,
+    href,
+    protocol,
+    port,
+    pathname,
+    search,
+    hash,
   };
 }
 
@@ -38,31 +57,22 @@ export class ServerPlatformLocation implements PlatformLocation {
   public readonly search: string = '';
   public readonly hash: string = '';
   private _hashUpdate = new Subject<LocationChangeEvent>();
+  private _doc = inject(DOCUMENT);
 
-  constructor(
-      @Inject(DOCUMENT) private _doc: any, @Optional() @Inject(INITIAL_CONFIG) _config: any) {
-    const config = _config as PlatformConfig | null;
+  constructor() {
+    const config = inject(INITIAL_CONFIG, {optional: true});
     if (!config) {
       return;
     }
     if (config.url) {
-      const url = parseUrl(config.url);
+      const url = parseUrl(config.url, this._doc.location.origin);
       this.protocol = url.protocol;
       this.hostname = url.hostname;
       this.port = url.port;
       this.pathname = url.pathname;
       this.search = url.search;
       this.hash = url.hash;
-      this.href = _doc.location.href;
-    }
-    if (config.useAbsoluteUrl) {
-      if (!config.baseUrl) {
-        throw new Error(`"PlatformConfig.baseUrl" must be set if "useAbsoluteUrl" is true`);
-      }
-      const url = parseUrl(config.baseUrl);
-      this.protocol = url.protocol;
-      this.hostname = url.hostname;
-      this.port = url.port;
+      this.href = url.href;
     }
   }
 
@@ -90,18 +100,25 @@ export class ServerPlatformLocation implements PlatformLocation {
       // Don't fire events if the hash has not changed.
       return;
     }
-    (this as {hash: string}).hash = value;
+    (this as Writable<this>).hash = value;
     const newUrl = this.url;
-    scheduleMicroTask(
-        () => this._hashUpdate.next(
-            {type: 'hashchange', state: null, oldUrl, newUrl} as LocationChangeEvent));
+    queueMicrotask(() =>
+      this._hashUpdate.next({
+        type: 'hashchange',
+        state: null,
+        oldUrl,
+        newUrl,
+      } as LocationChangeEvent),
+    );
   }
 
   replaceState(state: any, title: string, newUrl: string): void {
     const oldUrl = this.url;
-    const parsedUrl = parseUrl(newUrl);
-    (this as {pathname: string}).pathname = parsedUrl.pathname;
-    (this as {search: string}).search = parsedUrl.search;
+    const parsedUrl = parseUrl(newUrl, this._doc.location.origin);
+    (this as Writable<this>).pathname = parsedUrl.pathname;
+    (this as Writable<this>).search = parsedUrl.search;
+    (this as Writable<this>).href = parsedUrl.href;
+    (this as Writable<this>).protocol = parsedUrl.protocol;
     this.setHash(parsedUrl.hash, oldUrl);
   }
 
@@ -121,8 +138,4 @@ export class ServerPlatformLocation implements PlatformLocation {
   getState(): unknown {
     return undefined;
   }
-}
-
-export function scheduleMicroTask(fn: Function) {
-  Zone.current.scheduleMicroTask('scheduleMicrotask', fn);
 }

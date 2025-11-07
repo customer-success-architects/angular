@@ -3,14 +3,15 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
-import {NodeJSFileSystem} from '../../../src/ngtsc/file_system';
+import {ConfigAPI, PluginObj} from '@babel/core';
+
 import {ConsoleLogger, LogLevel} from '../../../src/ngtsc/logging';
 import {LinkerOptions} from '../../src/file_linker/linker_options';
 
-import {ConfigAPI, PluginObj} from './babel_core';
 import {createEs2015LinkerPlugin} from './es2015_linker_plugin';
+import {NodeJSFileSystem} from '../../../src/ngtsc/file_system/src/node_js_file_system';
 
 /**
  * This is the Babel plugin definition that is provided as a default export from the package, such

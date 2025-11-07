@@ -3,26 +3,28 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
 /**
  * Represents a set of CSS styles for use in an animation style as a generic.
  */
 export interface ɵStyleData {
-  [key: string]: string|number;
+  [key: string]: string | number;
 }
 
 /**
  * Represents a set of CSS styles for use in an animation style as a Map.
  */
-export type ɵStyleDataMap = Map<string, string|number>;
+export type ɵStyleDataMap = Map<string, string | number>;
 
 /**
  * Represents animation-step timing parameters for an animation step.
- * @see `animate()`
+ * @see {@link animate}
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
 export declare type AnimateTimings = {
   /**
@@ -30,12 +32,12 @@ export declare type AnimateTimings = {
    * such as "1s" or "10ms" for one second and 10 milliseconds, respectively.
    * The default unit is milliseconds.
    */
-  duration: number,
+  duration: number;
   /**
    * The delay in applying an animation step. A number and optional time unit.
    * The default unit is milliseconds.
    */
-  delay: number,
+  delay: number;
   /**
    * An easing style that controls how an animations step accelerates
    * and decelerates during its run time. An easing function such as `cubic-bezier()`,
@@ -44,7 +46,7 @@ export declare type AnimateTimings = {
    * - `ease-out`
    * - `ease-in-and-out`
    */
-  easing: string | null
+  easing: string | null;
 };
 
 /**
@@ -54,7 +56,7 @@ export declare type AnimateTimings = {
  *
  * - `transition()`
  * - `sequence()`
- * - `{@link animations/group group()}`
+ * - `group()`
  * - `query()`
  * - `animation()`
  * - `useAnimation()`
@@ -64,6 +66,8 @@ export declare type AnimateTimings = {
  * make use of `AnimationOptions`.
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
 export declare interface AnimationOptions {
   /**
@@ -72,7 +76,7 @@ export declare interface AnimationOptions {
    * and 10 milliseconds, respectively.The default unit is milliseconds.
    * Default value is 0, meaning no delay.
    */
-  delay?: number|string;
+  delay?: number | string;
   /**
    * A set of developer-defined parameters that modify styling and timing
    * when an animation action starts. An array of key-value pairs, where the provided value
@@ -84,12 +88,14 @@ export declare interface AnimationOptions {
 /**
  * Adds duration options to control animation styling and timing for a child animation.
  *
- * @see `animateChild()`
+ * @see {@link animateChild}
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
 export declare interface AnimateChildOptions extends AnimationOptions {
-  duration?: number|string;
+  duration?: number | string;
 }
 
 /**
@@ -99,8 +105,10 @@ export declare interface AnimateChildOptions extends AnimationOptions {
  * collects them into a corresponding `AnimationMetadata` object.
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
-export const enum AnimationMetadataType {
+export enum AnimationMetadataType {
   /**
    * Associates a named animation state with a set of CSS styles.
    * See [`state()`](api/animations/state)
@@ -118,7 +126,7 @@ export const enum AnimationMetadataType {
   Sequence = 2,
   /**
    * Contains a set of animation steps.
-   * See `{@link animations/group group()}`
+   * See `group()`
    */
   Group = 3,
   /**
@@ -165,13 +173,15 @@ export const enum AnimationMetadataType {
    * Contains data for staggering an animation sequence.
    * See `stagger()`
    */
-  Stagger = 12
+  Stagger = 12,
 }
 
 /**
  * Specifies automatic styling.
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
 export const AUTO_STYLE = '*';
 
@@ -179,6 +189,8 @@ export const AUTO_STYLE = '*';
  * Base for animation data structures.
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
 export interface AnimationMetadata {
   type: AnimationMetadataType;
@@ -189,6 +201,8 @@ export interface AnimationMetadata {
  * `trigger()` function.
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
 export interface AnimationTriggerMetadata extends AnimationMetadata {
   /**
@@ -204,7 +218,7 @@ export interface AnimationTriggerMetadata extends AnimationMetadata {
    * developer-defined parameters that provide styling defaults and
    * can be overridden on invocation. Default delay is 0.
    */
-  options: {params?: {[name: string]: any}}|null;
+  options: {params?: {[name: string]: any}} | null;
 }
 
 /**
@@ -212,6 +226,8 @@ export interface AnimationTriggerMetadata extends AnimationMetadata {
  * Instantiated and returned by the [`state()`](api/animations/state) function.
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
 export interface AnimationStateMetadata extends AnimationMetadata {
   /**
@@ -235,24 +251,31 @@ export interface AnimationStateMetadata extends AnimationMetadata {
  * `transition()` function.
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
 export interface AnimationTransitionMetadata extends AnimationMetadata {
   /**
    * An expression that describes a state change.
    */
-  expr: string|
-      ((fromState: string, toState: string, element?: any,
-        params?: {[key: string]: any}) => boolean);
+  expr:
+    | string
+    | ((
+        fromState: string,
+        toState: string,
+        element?: any,
+        params?: {[key: string]: any},
+      ) => boolean);
   /**
    * One or more animation objects to which this transition applies.
    */
-  animation: AnimationMetadata|AnimationMetadata[];
+  animation: AnimationMetadata | AnimationMetadata[];
   /**
    * An options object containing a delay and
    * developer-defined parameters that provide styling defaults and
    * can be overridden on invocation. Default delay is 0.
    */
-  options: AnimationOptions|null;
+  options: AnimationOptions | null;
 }
 
 /**
@@ -261,18 +284,20 @@ export interface AnimationTransitionMetadata extends AnimationMetadata {
  * passed to the `useAnimation()` function.
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
 export interface AnimationReferenceMetadata extends AnimationMetadata {
   /**
    *  One or more animation step objects.
    */
-  animation: AnimationMetadata|AnimationMetadata[];
+  animation: AnimationMetadata | AnimationMetadata[];
   /**
    * An options object containing a delay and
    * developer-defined parameters that provide styling defaults and
    * can be overridden on invocation. Default delay is 0.
    */
-  options: AnimationOptions|null;
+  options: AnimationOptions | null;
 }
 
 /**
@@ -280,6 +305,8 @@ export interface AnimationReferenceMetadata extends AnimationMetadata {
  * the `query()` function.
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
 export interface AnimationQueryMetadata extends AnimationMetadata {
   /**
@@ -289,11 +316,11 @@ export interface AnimationQueryMetadata extends AnimationMetadata {
   /**
    * One or more animation step objects.
    */
-  animation: AnimationMetadata|AnimationMetadata[];
+  animation: AnimationMetadata | AnimationMetadata[];
   /**
    * A query options object.
    */
-  options: AnimationQueryOptions|null;
+  options: AnimationQueryOptions | null;
 }
 
 /**
@@ -301,6 +328,8 @@ export interface AnimationQueryMetadata extends AnimationMetadata {
  * the `keyframes()` function.
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
 export interface AnimationKeyframesSequenceMetadata extends AnimationMetadata {
   /**
@@ -314,16 +343,18 @@ export interface AnimationKeyframesSequenceMetadata extends AnimationMetadata {
  * the `style()` function.
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
 export interface AnimationStyleMetadata extends AnimationMetadata {
   /**
    * A set of CSS style properties.
    */
-  styles: '*'|{[key: string]: string | number}|Array<{[key: string]: string | number}|'*'>;
+  styles: '*' | {[key: string]: string | number} | Array<{[key: string]: string | number} | '*'>;
   /**
    * A percentage of the total animate time at which the style is to be applied.
    */
-  offset: number|null;
+  offset: number | null;
 }
 
 /**
@@ -331,16 +362,18 @@ export interface AnimationStyleMetadata extends AnimationMetadata {
  * the `animate()` function.
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
 export interface AnimationAnimateMetadata extends AnimationMetadata {
   /**
    * The timing data for the step.
    */
-  timings: string|number|AnimateTimings;
+  timings: string | number | AnimateTimings;
   /**
    * A set of styles used in the step.
    */
-  styles: AnimationStyleMetadata|AnimationKeyframesSequenceMetadata|null;
+  styles: AnimationStyleMetadata | AnimationKeyframesSequenceMetadata | null;
 }
 
 /**
@@ -348,6 +381,8 @@ export interface AnimationAnimateMetadata extends AnimationMetadata {
  * Instantiated and returned by the `animateChild` function.
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
 export interface AnimationAnimateChildMetadata extends AnimationMetadata {
   /**
@@ -355,7 +390,7 @@ export interface AnimationAnimateChildMetadata extends AnimationMetadata {
    * developer-defined parameters that provide styling defaults and
    * can be overridden on invocation. Default delay is 0.
    */
-  options: AnimationOptions|null;
+  options: AnimationOptions | null;
 }
 
 /**
@@ -363,6 +398,8 @@ export interface AnimationAnimateChildMetadata extends AnimationMetadata {
  * Instantiated and returned by the `useAnimation()` function.
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
 export interface AnimationAnimateRefMetadata extends AnimationMetadata {
   /**
@@ -374,7 +411,7 @@ export interface AnimationAnimateRefMetadata extends AnimationMetadata {
    * developer-defined parameters that provide styling defaults and
    * can be overridden on invocation. Default delay is 0.
    */
-  options: AnimationOptions|null;
+  options: AnimationOptions | null;
 }
 
 /**
@@ -382,6 +419,8 @@ export interface AnimationAnimateRefMetadata extends AnimationMetadata {
  * Instantiated and returned by the `sequence()` function.
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
 export interface AnimationSequenceMetadata extends AnimationMetadata {
   /**
@@ -393,14 +432,16 @@ export interface AnimationSequenceMetadata extends AnimationMetadata {
    * developer-defined parameters that provide styling defaults and
    * can be overridden on invocation. Default delay is 0.
    */
-  options: AnimationOptions|null;
+  options: AnimationOptions | null;
 }
 
 /**
  * Encapsulates an animation group.
- * Instantiated and returned by the `{@link animations/group group()}` function.
+ * Instantiated and returned by the `group()` function.
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
 export interface AnimationGroupMetadata extends AnimationMetadata {
   /**
@@ -412,7 +453,7 @@ export interface AnimationGroupMetadata extends AnimationMetadata {
    * developer-defined parameters that provide styling defaults and
    * can be overridden on invocation. Default delay is 0.
    */
-  options: AnimationOptions|null;
+  options: AnimationOptions | null;
 }
 
 /**
@@ -420,6 +461,8 @@ export interface AnimationGroupMetadata extends AnimationMetadata {
  * Passed to the `query()` function.
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
 export declare interface AnimationQueryOptions extends AnimationOptions {
   /**
@@ -442,16 +485,18 @@ export declare interface AnimationQueryOptions extends AnimationOptions {
  * Instantiated and returned by the `stagger()` function.
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  **/
 export interface AnimationStaggerMetadata extends AnimationMetadata {
   /**
    * The timing data for the steps.
    */
-  timings: string|number;
+  timings: string | number;
   /**
    * One or more animation steps.
    */
-  animation: AnimationMetadata|AnimationMetadata[];
+  animation: AnimationMetadata | AnimationMetadata[];
 }
 
 /**
@@ -483,7 +528,7 @@ export interface AnimationStaggerMetadata extends AnimationMetadata {
  * The provided animation value is expected to be an array consisting of state and
  * transition declarations.
  *
- * ```typescript
+ * ```ts
  * @Component({
  *   selector: "my-component",
  *   templateUrl: "my-component-tpl.html",
@@ -513,7 +558,7 @@ export interface AnimationStaggerMetadata extends AnimationMetadata {
  * The `transition` animation method also supports reading an inline function which can decide
  * if its associated animation should be run.
  *
- * ```typescript
+ * ```ts
  * // this method is run each time the `myAnimationTrigger` trigger value changes.
  * function myInlineMatcherFn(fromState: string, toState: string, element: any, params: {[key:
  string]: any}): boolean {
@@ -546,7 +591,7 @@ export interface AnimationStaggerMetadata extends AnimationMetadata {
  *
  * The following example shows how to use this feature:
  *
- * ```typescript
+ * ```angular-ts
  * @Component({
  *   selector: 'my-component',
  *   template: `
@@ -575,7 +620,7 @@ export interface AnimationStaggerMetadata extends AnimationMetadata {
  * This means that you can disable all animations for an app
  * by placing a host binding set on `@.disabled` on the topmost Angular component.
  *
- * ```typescript
+ * ```ts
  * import {Component, HostBinding} from '@angular/core';
  *
  * @Component({
@@ -601,6 +646,8 @@ export interface AnimationStaggerMetadata extends AnimationMetadata {
  * the `.disabled` flag on the event is true.
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
 export function trigger(name: string, definitions: AnimationMetadata[]): AnimationTriggerMetadata {
   return {type: AnimationMetadataType.Trigger, name, definitions, options: {}};
@@ -631,7 +678,7 @@ export function trigger(name: string, definitions: AnimationMetadata[]): Animati
  * @returns An object that encapsulates the animation step.
  *
  * @usageNotes
- * Call within an animation `sequence()`, `{@link animations/group group()}`, or
+ * Call within an animation `sequence()`, {@link /api/animations/group group()}, or
  * `transition()` call to specify an animation step
  * that applies given style data to the parent animation for a given amount of time.
  *
@@ -649,12 +696,12 @@ export function trigger(name: string, definitions: AnimationMetadata[]): Animati
  * **Style examples**
  *
  * The following example calls `style()` to set a single CSS style.
- * ```typescript
+ * ```ts
  * animate(500, style({ background: "red" }))
  * ```
  * The following example calls `keyframes()` to set a CSS style
  * to different values for successive keyframes.
- * ```typescript
+ * ```ts
  * animate(500, keyframes(
  *  [
  *   style({ background: "blue" }),
@@ -663,11 +710,13 @@ export function trigger(name: string, definitions: AnimationMetadata[]): Animati
  * ```
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
 export function animate(
-    timings: string|number,
-    styles: AnimationStyleMetadata|AnimationKeyframesSequenceMetadata|null =
-        null): AnimationAnimateMetadata {
+  timings: string | number,
+  styles: AnimationStyleMetadata | AnimationKeyframesSequenceMetadata | null = null,
+): AnimationAnimateMetadata {
   return {type: AnimationMetadataType.Animate, styles, timings};
 }
 
@@ -681,7 +730,7 @@ export function animate(
  * `keyframes()`, or use `animate()` calls with a delay value.
  * For example:
  *
- * ```typescript
+ * ```ts
  * group([
  *   animate("1s", style({ background: "black" })),
  *   animate("2s", style({ color: "white" }))
@@ -703,9 +752,13 @@ export function animate(
  * instruction until all of the inner animation steps have completed.
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
 export function group(
-    steps: AnimationMetadata[], options: AnimationOptions|null = null): AnimationGroupMetadata {
+  steps: AnimationMetadata[],
+  options: AnimationOptions | null = null,
+): AnimationGroupMetadata {
   return {type: AnimationMetadataType.Group, steps, options};
 }
 
@@ -717,7 +770,7 @@ export function group(
  * - Steps defined by `animate()` calls apply the styling data over time
  *   as specified by the timing data.
  *
- * ```typescript
+ * ```ts
  * sequence([
  *   style({ opacity: 0 }),
  *   animate("1s", style({ opacity: 1 }))
@@ -733,17 +786,21 @@ export function group(
  * @usageNotes
  * When you pass an array of steps to a
  * `transition()` call, the steps run sequentially by default.
- * Compare this to the `{@link animations/group group()}` call, which runs animation steps in
+ * Compare this to the  {@link /api/animations/group group()} call, which runs animation steps in
  *parallel.
  *
- * When a sequence is used within a `{@link animations/group group()}` or a `transition()` call,
+ * When a sequence is used within a  {@link /api/animations/group group()} or a `transition()` call,
  * execution continues to the next instruction only after each of the inner animation
  * steps have completed.
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  **/
 export function sequence(
-    steps: AnimationMetadata[], options: AnimationOptions|null = null): AnimationSequenceMetadata {
+  steps: AnimationMetadata[],
+  options: AnimationOptions | null = null,
+): AnimationSequenceMetadata {
   return {type: AnimationMetadataType.Sequence, steps, options};
 }
 
@@ -768,7 +825,7 @@ export function sequence(
  * The following examples create animation styles that collect a set of
  * CSS property values:
  *
- * ```typescript
+ * ```ts
  * // string values for CSS properties
  * style({ background: "red", color: "blue" })
  *
@@ -779,15 +836,18 @@ export function sequence(
  * The following example uses auto-styling to allow an element to animate from
  * a height of 0 up to its full height:
  *
- * ```
+ * ```ts
  * style({ height: 0 }),
  * animate("1s", style({ height: "*" }))
  * ```
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  **/
-export function style(tokens: '*'|{[key: string]: string | number}|
-                      Array<'*'|{[key: string]: string | number}>): AnimationStyleMetadata {
+export function style(
+  tokens: '*' | {[key: string]: string | number} | Array<'*' | {[key: string]: string | number}>,
+): AnimationStyleMetadata {
   return {type: AnimationMetadataType.Style, styles: tokens, offset: null};
 }
 
@@ -819,10 +879,14 @@ export function style(tokens: '*'|{[key: string]: string | number}|
  * even when the animation ends.
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  **/
 export function state(
-    name: string, styles: AnimationStyleMetadata,
-    options?: {params: {[name: string]: any}}): AnimationStateMetadata {
+  name: string,
+  styles: AnimationStyleMetadata,
+  options?: {params: {[name: string]: any}},
+): AnimationStateMetadata {
   return {type: AnimationMetadataType.State, name, styles, options};
 }
 
@@ -847,7 +911,7 @@ export function state(
  * when each `backgroundColor` value is applied. The color is red at the start, and changes to
  * blue when 20% of the total time has elapsed.
  *
- * ```typescript
+ * ```ts
  * // the provided offset values
  * animate("5s", keyframes([
  *   style({ backgroundColor: "red", offset: 0 }),
@@ -860,7 +924,7 @@ export function state(
  * If there are no `offset` values specified in the style entries, the offsets
  * are calculated automatically.
  *
- * ```typescript
+ * ```ts
  * animate("5s", keyframes([
  *   style({ backgroundColor: "red" }) // offset = 0
  *   style({ backgroundColor: "blue" }) // offset = 0.33
@@ -870,6 +934,8 @@ export function state(
  *```
 
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
 export function keyframes(steps: AnimationStyleMetadata[]): AnimationKeyframesSequenceMetadata {
   return {type: AnimationMetadataType.Keyframes, steps};
@@ -903,7 +969,7 @@ export function keyframes(steps: AnimationStyleMetadata[]): AnimationKeyframesSe
  *    expression bound to the trigger's element goes from `fromState` to `toState`
  *
  *    _Example:_
- *      ```typescript
+ *      ```ts
  *        transition('open => closed', animate('.5s ease-out', style({ height: 0 }) ))
  *      ```
  *
@@ -911,7 +977,7 @@ export function keyframes(steps: AnimationStyleMetadata[]): AnimationKeyframesSe
  *    the expression bound to the trigger's element goes from `fromState` to `toState` or vice versa
  *
  *    _Example:_
- *      ```typescript
+ *      ```ts
  *        transition('enabled <=> disabled', animate('1s cubic-bezier(0.8,0.3,0,1)'))
  *      ```
  *
@@ -919,7 +985,7 @@ export function keyframes(steps: AnimationStyleMetadata[]): AnimationKeyframesSe
  *    element enters or exists the DOM
  *
  *    _Example:_
- *      ```typescript
+ *      ```ts
  *        transition(':enter', [
  *          style({ opacity: 0 }),
  *          animate('500ms', style({ opacity: 1 }))
@@ -930,7 +996,7 @@ export function keyframes(steps: AnimationStyleMetadata[]): AnimationKeyframesSe
  *    the numerical expression bound to the trigger's element has increased in value or decreased
  *
  *    _Example:_
- *      ```typescript
+ *      ```ts
  *        transition(':increment', query('@counter', animateChild()))
  *      ```
  *
@@ -938,7 +1004,7 @@ export function keyframes(steps: AnimationStyleMetadata[]): AnimationKeyframesSe
  *    should occur whenever one of the state change expressions matches
  *
  *    _Example:_
- *      ```typescript
+ *      ```ts
  *        transition(':increment, * => enabled, :enter', animate('1s ease', keyframes([
  *          style({ transform: 'scale(1)', offset: 0}),
  *          style({ transform: 'scale(1.1)', offset: 0.7}),
@@ -954,7 +1020,7 @@ export function keyframes(steps: AnimationStyleMetadata[]): AnimationKeyframesSe
  *  - `true` and `false` also match expression values of `1` and `0` respectively (but do not match
  *    _truthy_ and _falsy_ values)
  *
- * <div class="alert is-helpful">
+ * <div class="docs-alert docs-alert-helpful">
  *
  *  Be careful about entering end leaving elements as their transitions present a common
  *  pitfall for developers.
@@ -981,13 +1047,13 @@ export function keyframes(steps: AnimationStyleMetadata[]): AnimationKeyframesSe
  *  - Transition animations applied based on
  *    the trigger's expression value
  *
- *   ```HTML
+ *   ```html
  *   <div [@myAnimationTrigger]="myStatusExp">
  *    ...
  *   </div>
  *   ```
  *
- *   ```typescript
+ *   ```ts
  *   trigger("myAnimationTrigger", [
  *     ..., // states
  *     transition("on => off, open => closed", animate(500)),
@@ -998,7 +1064,7 @@ export function keyframes(steps: AnimationStyleMetadata[]): AnimationKeyframesSe
  *  - Transition animations applied based on custom logic dependent
  *    on the trigger's expression value and provided parameters
  *
- *    ```HTML
+ *    ```html
  *    <div [@myAnimationTrigger]="{
  *     value: stepName,
  *     params: { target: currentTarget }
@@ -1007,7 +1073,7 @@ export function keyframes(steps: AnimationStyleMetadata[]): AnimationKeyframesSe
  *    </div>
  *    ```
  *
- *    ```typescript
+ *    ```ts
  *    trigger("myAnimationTrigger", [
  *      ..., // states
  *      transition(
@@ -1020,12 +1086,21 @@ export function keyframes(steps: AnimationStyleMetadata[]): AnimationKeyframesSe
  *    ```
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  **/
 export function transition(
-    stateChangeExpr: string|
-    ((fromState: string, toState: string, element?: any, params?: {[key: string]: any}) => boolean),
-    steps: AnimationMetadata|AnimationMetadata[],
-    options: AnimationOptions|null = null): AnimationTransitionMetadata {
+  stateChangeExpr:
+    | string
+    | ((
+        fromState: string,
+        toState: string,
+        element?: any,
+        params?: {[key: string]: any},
+      ) => boolean),
+  steps: AnimationMetadata | AnimationMetadata[],
+  options: AnimationOptions | null = null,
+): AnimationTransitionMetadata {
   return {type: AnimationMetadataType.Transition, expr: stateChangeExpr, animation: steps, options};
 }
 
@@ -1046,7 +1121,7 @@ export function transition(
  * The following example defines a reusable animation, providing some default parameter
  * values.
  *
- * ```typescript
+ * ```ts
  * var fadeAnimation = animation([
  *   style({ opacity: '{{ start }}' }),
  *   animate('{{ time }}',
@@ -1073,10 +1148,13 @@ export function transition(
  * animated, `useAnimation()` throws an error.
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
 export function animation(
-    steps: AnimationMetadata|AnimationMetadata[],
-    options: AnimationOptions|null = null): AnimationReferenceMetadata {
+  steps: AnimationMetadata | AnimationMetadata[],
+  options: AnimationOptions | null = null,
+): AnimationReferenceMetadata {
   return {type: AnimationMetadataType.Reference, animation: steps, options};
 }
 
@@ -1098,9 +1176,12 @@ export function animation(
  * and transitions are not handled by this API.
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
-export function animateChild(options: AnimateChildOptions|null = null):
-    AnimationAnimateChildMetadata {
+export function animateChild(
+  options: AnimateChildOptions | null = null,
+): AnimationAnimateChildMetadata {
   return {type: AnimationMetadataType.AnimateChild, options};
 }
 
@@ -1113,10 +1194,13 @@ export function animateChild(options: AnimateChildOptions|null = null):
  * @return An object that contains the animation parameters.
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
 export function useAnimation(
-    animation: AnimationReferenceMetadata,
-    options: AnimationOptions|null = null): AnimationAnimateRefMetadata {
+  animation: AnimationReferenceMetadata,
+  options: AnimationOptions | null = null,
+): AnimationAnimateRefMetadata {
   return {type: AnimationMetadataType.AnimateRef, animation, options};
 }
 
@@ -1146,7 +1230,7 @@ export function useAnimation(
  *
  * Tokens can be merged into a combined query selector string. For example:
  *
- * ```typescript
+ * ```ts
  *  query(':self, .record:enter, .record:leave, @subTrigger', [...])
  * ```
  *
@@ -1183,7 +1267,7 @@ export function useAnimation(
  *  - Those inserted dynamically (via `ViewContainerRef`)
  *  - Those that have a structural directive (which, under the hood, are a subset of the above ones)
  *
- * <div class="alert is-helpful">
+ * <div class="docs-alert docs-alert-helpful">
  *
  *  Note that elements will be successfully queried via `:enter`/`:leave` even if their
  *  insertion/removal is not done manually via `ViewContainerRef`or caused by their structural
@@ -1191,7 +1275,7 @@ export function useAnimation(
  *
  * </div>
  *
- * <div class="alert is-important">
+ * <div class="docs-alert docs-alert-important">
  *
  *  There is an exception to what previously mentioned, besides elements entering/leaving based on
  *  their own logic, elements with an animation trigger can always be queried via `:leave` when
@@ -1204,7 +1288,7 @@ export function useAnimation(
  * The following example queries for inner elements and animates them
  * individually using `animate()`.
  *
- * ```typescript
+ * ```angular-ts
  * @Component({
  *   selector: 'inner',
  *   template: `
@@ -1239,10 +1323,14 @@ export function useAnimation(
  * ```
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
 export function query(
-    selector: string, animation: AnimationMetadata|AnimationMetadata[],
-    options: AnimationQueryOptions|null = null): AnimationQueryMetadata {
+  selector: string,
+  animation: AnimationMetadata | AnimationMetadata[],
+  options: AnimationQueryOptions | null = null,
+): AnimationQueryMetadata {
   return {type: AnimationMetadataType.Query, selector, animation, options};
 }
 
@@ -1256,7 +1344,7 @@ export function query(
  *
  * @usageNotes
  * In the following example, a container element wraps a list of items stamped out
- * by an `ngFor`. The container element contains an animation trigger that will later be set
+ * by an `@for` block. The container element contains an animation trigger that will later be set
  * to query for each of the inner items.
  *
  * Each time items are added, the opacity fade-in animation runs,
@@ -1269,15 +1357,15 @@ export function query(
  * <button (click)="toggle()">Show / Hide Items</button>
  * <hr />
  * <div [@listAnimation]="items.length">
- *   <div *ngFor="let item of items">
- *     {{ item }}
- *   </div>
+ *   @for(item of items; track $index) {
+ *      <div>{{ item }}</div>
+ *   }
  * </div>
  * ```
  *
  * Here is the component code:
  *
- * ```typescript
+ * ```ts
  * import {trigger, transition, style, animate, query, stagger} from '@angular/animations';
  * @Component({
  *   templateUrl: 'list.component.html',
@@ -1306,7 +1394,7 @@ export function query(
  *
  * Here is the animation trigger code:
  *
- * ```typescript
+ * ```ts
  * trigger('listAnimation', [
  *   transition('* => *', [ // each time the binding value changes
  *     query(':leave', [
@@ -1325,8 +1413,12 @@ export function query(
  * ```
  *
  * @publicApi
+ *
+ * @deprecated 20.2 Use `animate.enter` or `animate.leave` instead. Intent to remove in v23
  */
-export function stagger(timings: string|number, animation: AnimationMetadata|AnimationMetadata[]):
-    AnimationStaggerMetadata {
+export function stagger(
+  timings: string | number,
+  animation: AnimationMetadata | AnimationMetadata[],
+): AnimationStaggerMetadata {
   return {type: AnimationMetadataType.Stagger, timings, animation};
 }

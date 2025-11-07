@@ -3,11 +3,11 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
-import {Component, Directive, Provider, Type, ViewEncapsulation} from '@angular/core';
-import {TestBed} from '@angular/core/testing';
+import {Component, Directive, Provider, Type, ViewEncapsulation} from '../../src/core';
+import {TestBed} from '../../testing';
 
 export interface ComponentTest {
   providers?: Provider[];
@@ -19,21 +19,19 @@ export interface ComponentTest {
 }
 
 export function expectProvidersScenario(defs: {
-  app?: ComponentTest,
-  parent?: ComponentTest,
-  viewChild?: ComponentTest,
-  contentChild?: ComponentTest,
-  ngModule?: Type<any>,
+  app?: ComponentTest;
+  parent?: ComponentTest;
+  viewChild?: ComponentTest;
+  contentChild?: ComponentTest;
+  ngModule?: Type<any>;
 }): void {
   @Component({
-    standalone: true,
     selector: 'view-child',
     template: 'view-child',
     encapsulation: ViewEncapsulation.None,
     providers: defs.viewChild?.providers ?? [],
     viewProviders: defs.viewChild?.viewProviders ?? [],
   })
-
   class ViewChildComponent {
     constructor() {
       defs.viewChild?.componentAssertion?.();
@@ -41,11 +39,9 @@ export function expectProvidersScenario(defs: {
   }
 
   @Directive({
-    standalone: true,
     selector: 'view-child',
     providers: defs.viewChild?.directiveProviders ?? [],
   })
-
   class ViewChildDirective {
     constructor() {
       defs.viewChild?.directiveAssertion?.();
@@ -53,7 +49,6 @@ export function expectProvidersScenario(defs: {
   }
 
   @Component({
-    standalone: true,
     selector: 'content-child',
     template: 'content-child',
     encapsulation: ViewEncapsulation.None,
@@ -67,7 +62,6 @@ export function expectProvidersScenario(defs: {
   }
 
   @Directive({
-    standalone: true,
     selector: 'content-child',
     providers: defs.contentChild?.directiveProviders ?? [],
   })
@@ -77,9 +71,7 @@ export function expectProvidersScenario(defs: {
     }
   }
 
-
   @Component({
-    standalone: true,
     imports: [ViewChildComponent, ViewChildDirective],
     selector: 'parent',
     template: '<view-child></view-child>',
@@ -94,7 +86,6 @@ export function expectProvidersScenario(defs: {
   }
 
   @Directive({
-    standalone: true,
     selector: 'parent',
     providers: defs.parent?.directiveProviders ?? [],
   })
@@ -104,7 +95,6 @@ export function expectProvidersScenario(defs: {
     }
   }
   @Directive({
-    standalone: true,
     selector: 'parent',
     providers: defs.parent?.directive2Providers ?? [],
   })
@@ -115,7 +105,6 @@ export function expectProvidersScenario(defs: {
   }
 
   @Component({
-    standalone: true,
     imports: [
       ParentComponent,
       // Note: tests are sensitive to the ordering here - the providers from `ParentDirective`
@@ -129,7 +118,6 @@ export function expectProvidersScenario(defs: {
     providers: defs.app?.providers ?? [],
     viewProviders: defs.app?.viewProviders ?? [],
   })
-
   class App {
     constructor() {
       defs.app?.componentAssertion?.();
@@ -141,7 +129,8 @@ export function expectProvidersScenario(defs: {
   });
   const fixture = TestBed.createComponent(App);
   fixture.detectChanges();
-  expect(fixture.nativeElement.innerHTML)
-      .toEqual('<parent><view-child>view-child</view-child></parent>');
+  expect(fixture.nativeElement.innerHTML).toEqual(
+    '<parent><view-child>view-child</view-child></parent>',
+  );
   fixture.destroy();
 }

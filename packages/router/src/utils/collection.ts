@@ -3,15 +3,14 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
-import {ɵisObservable as isObservable, ɵisPromise as isPromise} from '@angular/core';
-import {from, Observable, of} from 'rxjs';
+import {ɵisPromise as isPromise} from '@angular/core';
+import {from, isObservable, Observable, of} from 'rxjs';
+import {firstValueFrom} from './first_value_from';
 
-import {Params} from '../shared';
-
-export function shallowEqualArrays(a: any[], b: any[]): boolean {
+export function shallowEqualArrays(a: readonly any[], b: readonly any[]): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; ++i) {
     if (!shallowEqual(a[i], b[i])) return false;
@@ -19,15 +18,18 @@ export function shallowEqualArrays(a: any[], b: any[]): boolean {
   return true;
 }
 
-export function shallowEqual(a: Params, b: Params): boolean {
+export function shallowEqual(
+  a: {[key: string | symbol]: any},
+  b: {[key: string | symbol]: any},
+): boolean {
   // While `undefined` should never be possible, it would sometimes be the case in IE 11
   // and pre-chromium Edge. The check below accounts for this edge case.
-  const k1 = a ? Object.keys(a) : undefined;
-  const k2 = b ? Object.keys(b) : undefined;
+  const k1 = a ? getDataKeys(a) : undefined;
+  const k2 = b ? getDataKeys(b) : undefined;
   if (!k1 || !k2 || k1.length != k2.length) {
     return false;
   }
-  let key: string;
+  let key: string | symbol;
   for (let i = 0; i < k1.length; i++) {
     key = k1[i];
     if (!equalArraysOrString(a[key], b[key])) {
@@ -38,9 +40,19 @@ export function shallowEqual(a: Params, b: Params): boolean {
 }
 
 /**
+ * Gets the keys of an object, including `symbol` keys.
+ */
+export function getDataKeys(obj: Object): Array<string | symbol> {
+  return [...Object.keys(obj), ...Object.getOwnPropertySymbols(obj)];
+}
+
+/**
  * Test equality for arrays of strings or a string.
  */
-export function equalArraysOrString(a: string|string[], b: string|string[]) {
+export function equalArraysOrString(
+  a: string | readonly string[],
+  b: string | readonly string[],
+): boolean {
   if (Array.isArray(a) && Array.isArray(b)) {
     if (a.length !== b.length) return false;
     const aSorted = [...a].sort();
@@ -52,35 +64,13 @@ export function equalArraysOrString(a: string|string[], b: string|string[]) {
 }
 
 /**
- * Flattens single-level nested arrays.
- */
-export function flatten<T>(arr: T[][]): T[] {
-  return Array.prototype.concat.apply([], arr);
-}
-
-/**
  * Return the last element of an array.
  */
-export function last<T>(a: T[]): T|null {
+export function last<T>(a: readonly T[]): T | null {
   return a.length > 0 ? a[a.length - 1] : null;
 }
 
-/**
- * Verifys all booleans in an array are `true`.
- */
-export function and(bools: boolean[]): boolean {
-  return !bools.some(v => !v);
-}
-
-export function forEach<K, V>(map: {[key: string]: V}, callback: (v: V, k: string) => void): void {
-  for (const prop in map) {
-    if (map.hasOwnProperty(prop)) {
-      callback(map[prop], prop);
-    }
-  }
-}
-
-export function wrapIntoObservable<T>(value: T|Promise<T>|Observable<T>): Observable<T> {
+export function wrapIntoObservable<T>(value: T | Promise<T> | Observable<T>): Observable<T> {
   if (isObservable(value)) {
     return value;
   }
@@ -93,4 +83,11 @@ export function wrapIntoObservable<T>(value: T|Promise<T>|Observable<T>): Observ
   }
 
   return of(value);
+}
+
+export function wrapIntoPromise<T>(value: T | Promise<T> | Observable<T>): Promise<T> {
+  if (isObservable(value)) {
+    return firstValueFrom(value);
+  }
+  return Promise.resolve(value);
 }

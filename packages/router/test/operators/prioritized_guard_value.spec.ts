@@ -3,17 +3,15 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
-
 import {TestBed} from '@angular/core/testing';
-import {RouterTestingModule} from '@angular/router/testing';
+import {RouterModule} from '../../index';
 import {TestScheduler} from 'rxjs/testing';
 
 import {prioritizedGuardValue} from '../../src/operators/prioritized_guard_value';
 import {Router} from '../../src/router';
-
 
 describe('prioritizedGuardValue operator', () => {
   let testScheduler: TestScheduler;
@@ -21,7 +19,7 @@ describe('prioritizedGuardValue operator', () => {
   const TF = {T: true, F: false};
 
   beforeEach(() => {
-    TestBed.configureTestingModule({imports: [RouterTestingModule]});
+    TestBed.configureTestingModule({imports: [RouterModule.forRoot([])]});
   });
   beforeEach(() => {
     testScheduler = new TestScheduler(assertDeepEquals);
@@ -39,11 +37,11 @@ describe('prioritizedGuardValue operator', () => {
 
       const expected = '  -------------T--';
 
-      expectObservable(source.pipe(prioritizedGuardValue()))
-          .toBe(
-              expected,
-              TF,
-              /* an error here maybe */);
+      expectObservable(source.pipe(prioritizedGuardValue())).toBe(
+        expected,
+        TF,
+        /* an error here maybe */
+      );
     });
   });
 
@@ -56,11 +54,11 @@ describe('prioritizedGuardValue operator', () => {
 
       const expected = '  -------------F--';
 
-      expectObservable(source.pipe(prioritizedGuardValue()))
-          .toBe(
-              expected,
-              TF,
-              /* an error here maybe */);
+      expectObservable(source.pipe(prioritizedGuardValue())).toBe(
+        expected,
+        TF,
+        /* an error here maybe */
+      );
     });
   });
 
@@ -76,11 +74,11 @@ describe('prioritizedGuardValue operator', () => {
 
       const expected = '  ------------T---';
 
-      expectObservable(source.pipe(prioritizedGuardValue()))
-          .toBe(
-              expected,
-              TF,
-              /* an error here maybe */);
+      expectObservable(source.pipe(prioritizedGuardValue())).toBe(
+        expected,
+        TF,
+        /* an error here maybe */
+      );
     });
   });
 
@@ -98,11 +96,11 @@ describe('prioritizedGuardValue operator', () => {
 
       const expected = '  -------------U---';
 
-      expectObservable(source.pipe(prioritizedGuardValue()))
-          .toBe(
-              expected,
-              urlLookup,
-              /* an error here maybe */);
+      expectObservable(source.pipe(prioritizedGuardValue())).toBe(
+        expected,
+        urlLookup,
+        /* an error here maybe */
+      );
     });
   });
 
@@ -120,11 +118,11 @@ describe('prioritizedGuardValue operator', () => {
 
       const expected = '  -------------F---';
 
-      expectObservable(source.pipe(prioritizedGuardValue()))
-          .toBe(
-              expected,
-              TF,
-              /* an error here maybe */);
+      expectObservable(source.pipe(prioritizedGuardValue())).toBe(
+        expected,
+        TF,
+        /* an error here maybe */
+      );
     });
   });
 
@@ -142,11 +140,11 @@ describe('prioritizedGuardValue operator', () => {
 
       const expected = '  -------------U----';
 
-      expectObservable(source.pipe(prioritizedGuardValue()))
-          .toBe(
-              expected,
-              urlLookup,
-              /* an error here maybe */);
+      expectObservable(source.pipe(prioritizedGuardValue())).toBe(
+        expected,
+        urlLookup,
+        /* an error here maybe */
+      );
     });
   });
 
@@ -166,21 +164,17 @@ describe('prioritizedGuardValue operator', () => {
 
       const expected = '  -------------U---';
 
-      expectObservable(source.pipe(prioritizedGuardValue()))
-          .toBe(
-              expected,
-              urlLookup,
-              /* an error here maybe */);
+      expectObservable(source.pipe(prioritizedGuardValue())).toBe(
+        expected,
+        urlLookup,
+        /* an error here maybe */
+      );
     });
   });
 
   it('should ignore invalid values', () => {
     testScheduler.run(({hot, cold, expectObservable}) => {
-      const resultLookup = {
-        T: true,
-        U: undefined as any,
-        S: 'I am not a valid guard result' as any
-      };
+      const resultLookup = {T: true, U: undefined, S: 'I am not a valid guard result' as any};
 
       const a = cold('       ----------(T|)', resultLookup);
       const b = cold('       -----(U|)', resultLookup);
@@ -191,11 +185,11 @@ describe('prioritizedGuardValue operator', () => {
 
       const expected = '  -------------T---';
 
-      expectObservable(source.pipe(prioritizedGuardValue()))
-          .toBe(
-              expected,
-              resultLookup,
-              /* an error here maybe */);
+      expectObservable(source.pipe(prioritizedGuardValue())).toBe(
+        expected,
+        resultLookup,
+        /* an error here maybe */
+      );
     });
   });
 
@@ -208,16 +202,14 @@ describe('prioritizedGuardValue operator', () => {
 
       const expected = '  ---------#';
 
-      expectObservable(source.pipe(prioritizedGuardValue()))
-          .toBe(
-              expected,
-              TF,
-              /* an error here maybe */);
+      expectObservable(source.pipe(prioritizedGuardValue())).toBe(
+        expected,
+        TF,
+        /* an error here maybe */
+      );
     });
   });
 });
-
-
 
 function assertDeepEquals(a: any, b: any) {
   return expect(a).toEqual(b);

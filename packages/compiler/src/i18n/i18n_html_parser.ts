@@ -3,12 +3,11 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
 import {MissingTranslationStrategy} from '../core';
 import {HtmlParser} from '../ml_parser/html_parser';
-import {DEFAULT_INTERPOLATION_CONFIG} from '../ml_parser/interpolation_config';
 import {TokenizeOptions} from '../ml_parser/lexer';
 import {ParseTreeResult} from '../ml_parser/parser';
 import {Console} from '../util';
@@ -29,29 +28,41 @@ export class I18NHtmlParser implements HtmlParser {
   private _translationBundle: TranslationBundle;
 
   constructor(
-      private _htmlParser: HtmlParser, translations?: string, translationsFormat?: string,
-      missingTranslation: MissingTranslationStrategy = MissingTranslationStrategy.Warning,
-      console?: Console) {
+    private _htmlParser: HtmlParser,
+    translations?: string,
+    translationsFormat?: string,
+    missingTranslation: MissingTranslationStrategy = MissingTranslationStrategy.Warning,
+    console?: Console,
+  ) {
     if (translations) {
       const serializer = createSerializer(translationsFormat);
-      this._translationBundle =
-          TranslationBundle.load(translations, 'i18n', serializer, missingTranslation, console);
+      this._translationBundle = TranslationBundle.load(
+        translations,
+        'i18n',
+        serializer,
+        missingTranslation,
+        console,
+      );
     } else {
-      this._translationBundle =
-          new TranslationBundle({}, null, digest, undefined, missingTranslation, console);
+      this._translationBundle = new TranslationBundle(
+        {},
+        null,
+        digest,
+        undefined,
+        missingTranslation,
+        console,
+      );
     }
   }
 
   parse(source: string, url: string, options: TokenizeOptions = {}): ParseTreeResult {
-    const interpolationConfig = options.interpolationConfig || DEFAULT_INTERPOLATION_CONFIG;
-    const parseResult = this._htmlParser.parse(source, url, {interpolationConfig, ...options});
+    const parseResult = this._htmlParser.parse(source, url, {...options});
 
     if (parseResult.errors.length) {
       return new ParseTreeResult(parseResult.rootNodes, parseResult.errors);
     }
 
-    return mergeTranslations(
-        parseResult.rootNodes, this._translationBundle, interpolationConfig, [], {});
+    return mergeTranslations(parseResult.rootNodes, this._translationBundle, [], {});
   }
 }
 

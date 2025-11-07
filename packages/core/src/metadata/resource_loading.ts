@@ -3,18 +3,19 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
+import {RuntimeError, RuntimeErrorCode} from '../errors';
 import {Type} from '../interface/type';
-import {Component} from './directives';
 
+import type {Component} from './directives';
 
 /**
  * Used to resolve resource URLs on `@Component` when used with JIT compilation.
  *
  * Example:
- * ```
+ * ```ts
  * @Component({
  *   selector: 'my-comp',
  *   templateUrl: 'my-comp.html', // This requires asynchronous resolution
@@ -43,7 +44,8 @@ import {Component} from './directives';
  * contents of the resolved URL. Browser's `fetch()` method is a good default implementation.
  */
 export function resolveComponentResources(
-    resourceResolver: (url: string) => (Promise<string|{text(): Promise<string>}>)): Promise<void> {
+  resourceResolver: (url: string) => Promise<string | {text(): Promise<string>; status?: number}>,
+): Promise<void> {
   // Store all promises which are fetching the resources.
   const componentResolved: Promise<void>[] = [];
 
@@ -53,7 +55,7 @@ export function resolveComponentResources(
     let promise = urlMap.get(url);
     if (!promise) {
       const resp = resourceResolver(url);
-      urlMap.set(url, promise = resp.then(unwrapResponse));
+      urlMap.set(url, (promise = resp.then((res) => unwrapResponse(url, res))));
     }
     return promise;
   }
@@ -61,23 +63,45 @@ export function resolveComponentResources(
   componentResourceResolutionQueue.forEach((component: Component, type: Type<any>) => {
     const promises: Promise<void>[] = [];
     if (component.templateUrl) {
-      promises.push(cachedResourceResolve(component.templateUrl).then((template) => {
-        component.template = template;
-      }));
+      promises.push(
+        cachedResourceResolve(component.templateUrl).then((template) => {
+          component.template = template;
+        }),
+      );
     }
-    const styleUrls = component.styleUrls;
-    const styles = component.styles || (component.styles = []);
-    const styleOffset = component.styles.length;
-    styleUrls && styleUrls.forEach((styleUrl, index) => {
-      styles.push('');  // pre-allocate array.
-      promises.push(cachedResourceResolve(styleUrl).then((style) => {
-        styles[styleOffset + index] = style;
-        styleUrls.splice(styleUrls.indexOf(styleUrl), 1);
-        if (styleUrls.length == 0) {
-          component.styleUrls = undefined;
-        }
-      }));
-    });
+    const styles =
+      typeof component.styles === 'string' ? [component.styles] : component.styles || [];
+    component.styles = styles;
+
+    if (component.styleUrl && component.styleUrls?.length) {
+      throw new Error(
+        '@Component cannot define both `styleUrl` and `styleUrls`. ' +
+          'Use `styleUrl` if the component has one stylesheet, or `styleUrls` if it has multiple',
+      );
+    } else if (component.styleUrls?.length) {
+      const styleOffset = component.styles.length;
+      const styleUrls = component.styleUrls;
+      component.styleUrls.forEach((styleUrl, index) => {
+        styles.push(''); // pre-allocate array.
+        promises.push(
+          cachedResourceResolve(styleUrl).then((style) => {
+            styles[styleOffset + index] = style;
+            styleUrls.splice(styleUrls.indexOf(styleUrl), 1);
+            if (styleUrls.length == 0) {
+              component.styleUrls = undefined;
+            }
+          }),
+        );
+      });
+    } else if (component.styleUrl) {
+      promises.push(
+        cachedResourceResolve(component.styleUrl).then((style) => {
+          styles.push(style);
+          component.styleUrl = undefined;
+        }),
+      );
+    }
+
     const fullyResolved = Promise.all(promises).then(() => componentDefResolved(type));
     componentResolved.push(fullyResolved);
   });
@@ -103,8 +127,10 @@ export function isComponentDefPendingResolution(type: Type<any>): boolean {
 
 export function componentNeedsResolution(component: Component): boolean {
   return !!(
-      (component.templateUrl && !component.hasOwnProperty('template')) ||
-      component.styleUrls && component.styleUrls.length);
+    (component.templateUrl && !component.hasOwnProperty('template')) ||
+    (component.styleUrls && component.styleUrls.length) ||
+    component.styleUrl
+  );
 }
 export function clearResolutionOfComponentResourcesQueue(): Map<Type<any>, Component> {
   const old = componentResourceResolutionQueue;
@@ -122,8 +148,22 @@ export function isComponentResourceResolutionQueueEmpty() {
   return componentResourceResolutionQueue.size === 0;
 }
 
-function unwrapResponse(response: string|{text(): Promise<string>}): string|Promise<string> {
-  return typeof response == 'string' ? response : response.text();
+function unwrapResponse(
+  url: string,
+  response: string | {text(): Promise<string>; status?: number},
+): string | Promise<string> {
+  if (typeof response === 'string') {
+    return response;
+  }
+  if (response.status !== undefined && response.status !== 200) {
+    return Promise.reject(
+      new RuntimeError(
+        RuntimeErrorCode.EXTERNAL_RESOURCE_LOADING_FAILED,
+        ngDevMode && `Could not load resource: ${url}. Response status: ${response.status}`,
+      ),
+    );
+  }
+  return response.text();
 }
 
 function componentDefResolved(type: Type<any>): void {

@@ -3,40 +3,74 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
-import {ElementPosition, LifecycleProfile} from 'protocol';
+import {ElementPosition, LifecycleProfile} from '../../../../../protocol';
 import {Subject} from 'rxjs';
 
 import {NodeArray} from '../identity-tracker';
 
-type CreationHook =
-    (componentOrDirective: any, node: Node, id: number, isComponent: boolean,
-     position: ElementPosition) => void;
+type CreationHook = (
+  componentOrDirective: any,
+  node: Node,
+  id: number,
+  isComponent: boolean,
+  position: ElementPosition,
+) => void;
 
-type LifecycleStartHook =
-    (componentOrDirective: any, hook: keyof LifecycleProfile|'unknown', node: Node, id: number,
-     isComponent: boolean) => void;
+type LifecycleStartHook = (
+  componentOrDirective: any,
+  hook: keyof LifecycleProfile,
+  node: Node,
+  id: number,
+  isComponent: boolean,
+) => void;
 
-type LifecycleEndHook =
-    (componentOrDirective: any, hook: keyof LifecycleProfile|'unknown', node: Node, id: number,
-     isComponent: boolean) => void;
+type LifecycleEndHook = (
+  componentOrDirective: any,
+  hook: keyof LifecycleProfile,
+  node: Node,
+  id: number,
+  isComponent: boolean,
+) => void;
 
-type ChangeDetectionStartHook =
-    (component: any, node: Node, id: number, position: ElementPosition) => void;
+type ChangeDetectionStartHook = (
+  component: any,
+  node: Node,
+  id: number,
+  position: ElementPosition,
+) => void;
 
-type ChangeDetectionEndHook = (component: any, node: Node, id: number, position: ElementPosition) =>
-    void;
+type ChangeDetectionEndHook = (
+  component: any,
+  node: Node,
+  id: number,
+  position: ElementPosition,
+) => void;
 
-type DestroyHook =
-    (componentOrDirective: any, node: Node, id: number, isComponent: boolean,
-     position: ElementPosition) => void;
+type DestroyHook = (
+  componentOrDirective: any,
+  node: Node,
+  id: number,
+  isComponent: boolean,
+  position: ElementPosition,
+) => void;
 
-type OutputStartHook =
-    (componentOrDirective: any, outputName: string, node: Node, isComponent: boolean) => void;
-type OutputEndHook =
-    (componentOrDirective: any, outputName: string, node: Node, isComponent: boolean) => void;
+type OutputStartHook = (
+  componentOrDirective: any,
+  outputName: string,
+  node: Node,
+  id: number | undefined,
+  isComponent: boolean,
+) => void;
+type OutputEndHook = (
+  componentOrDirective: any,
+  outputName: string,
+  node: Node,
+  id: number | undefined,
+  isComponent: boolean,
+) => void;
 
 export interface Hooks {
   onCreate: CreationHook;
@@ -79,85 +113,127 @@ export abstract class Profiler {
 
   /** @internal */
   protected _onCreate(
-      _: any, __: Node, id: number|undefined, ___: boolean,
-      position: ElementPosition|undefined): void {
+    _: any,
+    hook: Node,
+    id: number | undefined,
+    node: boolean,
+    position: ElementPosition | undefined,
+  ): void {
     if (id === undefined || position === undefined) {
       return;
     }
-    this._invokeCallback('onCreate', arguments);
+    this._invokeCallback('onCreate', [_, hook, id, node, position]);
   }
 
   /** @internal */
   protected _onDestroy(
-      _: any, __: Node, id: number|undefined, ___: boolean,
-      position: ElementPosition|undefined): void {
+    _: any,
+    hook: Node,
+    id: number | undefined,
+    node: boolean,
+    position: ElementPosition | undefined,
+  ): void {
     if (id === undefined || position === undefined) {
       return;
     }
-    this._invokeCallback('onDestroy', arguments);
+    this._invokeCallback('onDestroy', [_, hook, id, node, position]);
   }
 
   /** @internal */
   protected _onChangeDetectionStart(
-      _: any, __: Node, id: number|undefined, position: ElementPosition|undefined): void {
+    _: any,
+    hook: Node,
+    id: number | undefined,
+    position: ElementPosition | undefined,
+  ): void {
     if (id === undefined || position === undefined) {
       return;
     }
-    this._invokeCallback('onChangeDetectionStart', arguments);
+    this._invokeCallback('onChangeDetectionStart', [_, hook, id, position]);
   }
 
   /** @internal */
   protected _onChangeDetectionEnd(
-      _: any, __: Node, id: number|undefined, position: ElementPosition|undefined): void {
+    _: any,
+    hook: Node,
+    id: number | undefined,
+    position: ElementPosition | undefined,
+  ): void {
     if (id === undefined || position === undefined) {
       return;
     }
-    this._invokeCallback('onChangeDetectionEnd', arguments);
+    this._invokeCallback('onChangeDetectionEnd', [_, hook, id, position]);
   }
 
   /** @internal */
   protected _onLifecycleHookStart(
-      _: any, __: keyof LifecycleProfile|'unknown', ___: Node, id: number|undefined,
-      ____: boolean): void {
-    if (id === undefined) {
+    componentOrDirective: any,
+    hook: keyof LifecycleProfile | 'unknown',
+    node: Node,
+    id: number | undefined,
+    isComponent: boolean,
+  ): void {
+    if (id === undefined || hook === 'unknown') {
       return;
     }
-    this._invokeCallback('onLifecycleHookStart', arguments);
+    const a = arguments;
+    this._invokeCallback('onLifecycleHookStart', [
+      componentOrDirective,
+      hook,
+      node,
+      id,
+      isComponent,
+    ]);
   }
 
   /** @internal */
   protected _onLifecycleHookEnd(
-      _: any, __: keyof LifecycleProfile|'unknown', ___: Node, id: number|undefined,
-      ____: boolean): void {
-    if (id === undefined) {
+    componentOrDirective: any,
+    hook: keyof LifecycleProfile | 'unknown',
+    node: Node,
+    id: number | undefined,
+    isComponent: boolean,
+  ): void {
+    if (id === undefined || hook === 'unknown') {
       return;
     }
-    this._invokeCallback('onLifecycleHookEnd', arguments);
+    this._invokeCallback('onLifecycleHookEnd', [componentOrDirective, hook, node, id, isComponent]);
   }
 
   /** @internal */
-  protected _onOutputStart(_: any, __: string, ___: Node, id: number|undefined, ____: boolean):
-      void {
+  protected _onOutputStart(
+    componentOrDirective: any,
+    hook: string,
+    node: Node,
+    id: number | undefined,
+    isComponent: boolean,
+  ): void {
     if (id === undefined) {
       return;
     }
-    this._invokeCallback('onOutputStart', arguments);
+    this._invokeCallback('onOutputStart', [componentOrDirective, hook, node, id, isComponent]);
   }
 
   /** @internal */
-  protected _onOutputEnd(_: any, __: string, ___: Node, id: number|undefined, ____: boolean): void {
+  protected _onOutputEnd(
+    componentOrDirective: any,
+    hook: string,
+    node: Node,
+    id: number | undefined,
+    isComponent: boolean,
+  ): void {
     if (id === undefined) {
       return;
     }
-    this._invokeCallback('onOutputEnd', arguments);
+    this._invokeCallback('onOutputEnd', [componentOrDirective, hook, node, id, isComponent]);
   }
 
   /** @internal */
-  private _invokeCallback(name: keyof Hooks, args: IArguments): void {
+  private _invokeCallback<K extends keyof Hooks>(name: K, args: Parameters<Hooks[K]>): void {
     this._hooks.forEach((config) => {
-      const cb = config[name];
+      const cb = (config as Hooks)[name];
       if (typeof cb === 'function') {
-        cb.apply(null, args);
+        (cb as Function).apply(null, args);
       }
     });
   }
@@ -176,7 +252,7 @@ const hookNames = [
 
 const hookMethodNames = new Set(hookNames.map((hook) => `ng${hook}`));
 
-export const getLifeCycleName = (obj: {}, fn: any): keyof LifecycleProfile|'unknown' => {
+export const getLifeCycleName = (obj: {}, fn: any): keyof LifecycleProfile | 'unknown' => {
   const proto = Object.getPrototypeOf(obj);
   const keys = Object.getOwnPropertyNames(proto);
   for (const propName of keys) {

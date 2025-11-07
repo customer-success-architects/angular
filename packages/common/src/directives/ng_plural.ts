@@ -3,7 +3,7 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
 import {Attribute, Directive, Host, Input, TemplateRef, ViewContainerRef} from '@angular/core';
@@ -12,12 +12,11 @@ import {getPluralCategory, NgLocalization} from '../i18n/localization';
 
 import {SwitchView} from './ng_switch';
 
-
 /**
  * @ngModule CommonModule
  *
  * @usageNotes
- * ```
+ * ```html
  * <some-element [ngPlural]="value">
  *   <ng-template ngPluralCase="=0">there is nothing</ng-template>
  *   <ng-template ngPluralCase="=1">there is one</ng-template>
@@ -46,32 +45,27 @@ import {SwitchView} from './ng_switch';
  */
 @Directive({
   selector: '[ngPlural]',
-  standalone: true,
 })
 export class NgPlural {
-  // TODO(issue/24571): remove '!'.
-  private _switchValue!: number;
-  // TODO(issue/24571): remove '!'.
-  private _activeView!: SwitchView;
+  private _activeView?: SwitchView;
   private _caseViews: {[k: string]: SwitchView} = {};
 
   constructor(private _localization: NgLocalization) {}
 
   @Input()
   set ngPlural(value: number) {
-    this._switchValue = value;
-    this._updateView();
+    this._updateView(value);
   }
 
   addCase(value: string, switchView: SwitchView): void {
     this._caseViews[value] = switchView;
   }
 
-  private _updateView(): void {
+  private _updateView(switchValue: number): void {
     this._clearViews();
 
     const cases = Object.keys(this._caseViews);
-    const key = getPluralCategory(this._switchValue, cases, this._localization);
+    const key = getPluralCategory(switchValue, cases, this._localization);
     this._activateView(this._caseViews[key]);
   }
 
@@ -96,7 +90,7 @@ export class NgPlural {
  * given expression matches the plural expression according to CLDR rules.
  *
  * @usageNotes
- * ```
+ * ```html
  * <some-element [ngPlural]="value">
  *   <ng-template ngPluralCase="=0">...</ng-template>
  *   <ng-template ngPluralCase="other">...</ng-template>
@@ -109,12 +103,14 @@ export class NgPlural {
  */
 @Directive({
   selector: '[ngPluralCase]',
-  standalone: true,
 })
 export class NgPluralCase {
   constructor(
-      @Attribute('ngPluralCase') public value: string, template: TemplateRef<Object>,
-      viewContainer: ViewContainerRef, @Host() ngPlural: NgPlural) {
+    @Attribute('ngPluralCase') public value: string,
+    template: TemplateRef<Object>,
+    viewContainer: ViewContainerRef,
+    @Host() ngPlural: NgPlural,
+  ) {
     const isANumber: boolean = !isNaN(Number(value));
     ngPlural.addCase(isANumber ? `=${value}` : value, new SwitchView(viewContainer, template));
   }

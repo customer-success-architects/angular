@@ -1,4 +1,4 @@
-load("//tools:defaults.bzl", "ng_module")
+load("//tools:defaults.bzl", "ng_project")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -7,11 +7,17 @@ exports_files([
     "schema.json",
 ])
 
-ng_module(
-    name = "config",
+filegroup(
+    name = "sources",
     srcs = glob([
         "*.ts",
         "src/**/*.ts",
     ]),
-    deps = ["//packages/core"],
+)
+
+ng_project(
+    name = "config",
+    srcs = [":sources"],
+    deps = [
+    ],
 )

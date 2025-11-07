@@ -3,17 +3,17 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
-import * as ts from 'typescript/lib/tsserverlibrary';
+import ts from 'typescript';
 
 function isAngularCore(path: string): boolean {
   return isExternalAngularCore(path) || isInternalAngularCore(path);
 }
 
 function isExternalAngularCore(path: string): boolean {
-  return path.endsWith('@angular/core/core.d.ts') || path.endsWith('@angular/core/index.d.ts');
+  return /@angular\/core\/.+\.d\.ts$/.test(path);
 }
 
 function isInternalAngularCore(path: string): boolean {
@@ -51,7 +51,7 @@ const factory: ts.server.PluginModuleFactory = (): ts.server.PluginModule => {
           }
         },
       };
-    }
+    },
   };
 };
 

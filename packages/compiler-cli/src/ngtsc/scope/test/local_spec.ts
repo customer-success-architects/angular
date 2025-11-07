@@ -3,23 +3,38 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
 import ts from 'typescript';
 
 import {Reference, ReferenceEmitter} from '../../imports';
-import {ClassPropertyMapping, CompoundMetadataRegistry, DirectiveMeta, DtsMetadataReader, LocalMetadataRegistry, MetadataRegistry, MetaKind, PipeMeta} from '../../metadata';
+import {
+  ClassPropertyMapping,
+  CompoundMetadataRegistry,
+  DirectiveMeta,
+  LocalMetadataRegistry,
+  MatchSource,
+  MetadataRegistry,
+  MetaKind,
+  PipeMeta,
+} from '../../metadata';
 import {ClassDeclaration} from '../../reflection';
 import {LocalModuleScope, ScopeData} from '../src/api';
 import {DtsModuleScopeResolver} from '../src/dependency';
 import {LocalModuleScopeRegistry} from '../src/local';
 
-function registerFakeRefs(registry: MetadataRegistry):
-    {[name: string]: Reference<ClassDeclaration>} {
+function registerFakeRefs(registry: MetadataRegistry): {
+  [name: string]: Reference<ClassDeclaration>;
+} {
   const get = (target: {}, name: string): Reference<ClassDeclaration> => {
     const sf = ts.createSourceFile(
-        name + '.ts', `export class ${name} {}`, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+      name + '.ts',
+      `export class ${name} {}`,
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS,
+    );
     const clazz = sf.statements[0] as unknown as ClassDeclaration;
     const ref = new Reference(clazz);
     if (name.startsWith('Dir') || name.startsWith('Cmp')) {
@@ -40,7 +55,12 @@ describe('LocalModuleScopeRegistry', () => {
   beforeEach(() => {
     const localRegistry = new LocalMetadataRegistry();
     scopeRegistry = new LocalModuleScopeRegistry(
-        localRegistry, localRegistry, new MockDtsModuleScopeResolver(), refEmitter, null);
+      localRegistry,
+      localRegistry,
+      new MockDtsModuleScopeResolver(),
+      refEmitter,
+      null,
+    );
     metaRegistry = new CompoundMetadataRegistry([localRegistry, scopeRegistry]);
   });
 
@@ -57,6 +77,9 @@ describe('LocalModuleScopeRegistry', () => {
       rawDeclarations: null,
       rawImports: null,
       rawExports: null,
+      decorator: null,
+      mayDeclareProviders: false,
+      isPoisoned: false,
     });
 
     const scope = scopeRegistry.getScopeOfModule(Module.node) as LocalModuleScope;
@@ -77,6 +100,9 @@ describe('LocalModuleScopeRegistry', () => {
       rawDeclarations: null,
       rawImports: null,
       rawExports: null,
+      decorator: null,
+      mayDeclareProviders: false,
+      isPoisoned: false,
     });
     metaRegistry.registerNgModuleMetadata({
       kind: MetaKind.NgModule,
@@ -88,6 +114,9 @@ describe('LocalModuleScopeRegistry', () => {
       rawDeclarations: null,
       rawImports: null,
       rawExports: null,
+      decorator: null,
+      mayDeclareProviders: false,
+      isPoisoned: false,
     });
     metaRegistry.registerNgModuleMetadata({
       kind: MetaKind.NgModule,
@@ -99,6 +128,9 @@ describe('LocalModuleScopeRegistry', () => {
       rawDeclarations: null,
       rawImports: null,
       rawExports: null,
+      decorator: null,
+      mayDeclareProviders: false,
+      isPoisoned: false,
     });
 
     const scopeA = scopeRegistry.getScopeOfModule(ModuleA.node) as LocalModuleScope;
@@ -119,6 +151,9 @@ describe('LocalModuleScopeRegistry', () => {
       rawDeclarations: null,
       rawImports: null,
       rawExports: null,
+      decorator: null,
+      mayDeclareProviders: false,
+      isPoisoned: false,
     });
     metaRegistry.registerNgModuleMetadata({
       kind: MetaKind.NgModule,
@@ -130,6 +165,9 @@ describe('LocalModuleScopeRegistry', () => {
       rawDeclarations: null,
       rawImports: null,
       rawExports: null,
+      decorator: null,
+      mayDeclareProviders: false,
+      isPoisoned: false,
     });
 
     const scopeA = scopeRegistry.getScopeOfModule(ModuleA.node) as LocalModuleScope;
@@ -150,6 +188,9 @@ describe('LocalModuleScopeRegistry', () => {
       rawDeclarations: null,
       rawImports: null,
       rawExports: null,
+      decorator: null,
+      mayDeclareProviders: false,
+      isPoisoned: false,
     });
     metaRegistry.registerNgModuleMetadata({
       kind: MetaKind.NgModule,
@@ -161,6 +202,9 @@ describe('LocalModuleScopeRegistry', () => {
       rawDeclarations: null,
       rawImports: null,
       rawExports: null,
+      decorator: null,
+      mayDeclareProviders: false,
+      isPoisoned: false,
     });
     metaRegistry.registerNgModuleMetadata({
       kind: MetaKind.NgModule,
@@ -172,6 +216,9 @@ describe('LocalModuleScopeRegistry', () => {
       rawDeclarations: null,
       rawImports: null,
       rawExports: null,
+      decorator: null,
+      mayDeclareProviders: false,
+      isPoisoned: false,
     });
 
     const scope = scopeRegistry.getScopeOfModule(ModuleA.node) as LocalModuleScope;
@@ -199,13 +246,16 @@ describe('LocalModuleScopeRegistry', () => {
       rawDeclarations: null,
       rawImports: null,
       rawExports: null,
+      decorator: null,
+      mayDeclareProviders: false,
+      isPoisoned: false,
     });
 
     const scope = scopeRegistry.getScopeOfModule(Module.node) as LocalModuleScope;
     expect(scope.compilation.dependencies[0].ref.getIdentityIn(idSf)).toBe(id);
   });
 
-  it('should allow directly exporting a directive that\'s not imported', () => {
+  it("should allow directly exporting a directive that's not imported", () => {
     const {Dir, ModuleA, ModuleB} = registerFakeRefs(metaRegistry);
 
     metaRegistry.registerNgModuleMetadata({
@@ -218,6 +268,9 @@ describe('LocalModuleScopeRegistry', () => {
       rawDeclarations: null,
       rawImports: null,
       rawExports: null,
+      decorator: null,
+      mayDeclareProviders: false,
+      isPoisoned: false,
     });
     metaRegistry.registerNgModuleMetadata({
       kind: MetaKind.NgModule,
@@ -229,13 +282,16 @@ describe('LocalModuleScopeRegistry', () => {
       rawDeclarations: null,
       rawImports: null,
       rawExports: null,
+      decorator: null,
+      mayDeclareProviders: false,
+      isPoisoned: false,
     });
 
     const scopeA = scopeRegistry.getScopeOfModule(ModuleA.node) as LocalModuleScope;
     expect(scopeToRefs(scopeA.exported)).toEqual([Dir]);
   });
 
-  it('should not allow directly exporting a directive that\'s not imported', () => {
+  it("should not allow directly exporting a directive that's not imported", () => {
     const {Dir, ModuleA, ModuleB} = registerFakeRefs(metaRegistry);
 
     metaRegistry.registerNgModuleMetadata({
@@ -248,6 +304,9 @@ describe('LocalModuleScopeRegistry', () => {
       rawDeclarations: null,
       rawImports: null,
       rawExports: null,
+      decorator: null,
+      mayDeclareProviders: false,
+      isPoisoned: false,
     });
     metaRegistry.registerNgModuleMetadata({
       kind: MetaKind.NgModule,
@@ -259,6 +318,9 @@ describe('LocalModuleScopeRegistry', () => {
       rawDeclarations: null,
       rawImports: null,
       rawExports: null,
+      decorator: null,
+      mayDeclareProviders: false,
+      isPoisoned: false,
     });
 
     expect(scopeRegistry.getScopeOfModule(ModuleA.node)!.compilation.isPoisoned).toBeTrue();
@@ -275,6 +337,7 @@ function fakeDirective(ref: Reference<ClassDeclaration>): DirectiveMeta {
   const name = ref.debugName!;
   return {
     kind: MetaKind.Directive,
+    matchSource: MatchSource.Selector,
     ref,
     name,
     selector: `[${ref.debugName}]`,
@@ -295,8 +358,20 @@ function fakeDirective(ref: Reference<ClassDeclaration>): DirectiveMeta {
     isStructural: false,
     animationTriggerNames: null,
     isStandalone: false,
+    isSignal: false,
     imports: null,
+    rawImports: null,
     schemas: null,
+    decorator: null,
+    hostDirectives: null,
+    assumedToExportProviders: false,
+    ngContentSelectors: null,
+    preserveWhitespaces: false,
+    isExplicitlyDeferred: false,
+    deferredImports: null,
+    inputFieldNamesFromMetadataArray: null,
+    selectorlessEnabled: false,
+    localReferencedSymbols: null,
   };
 }
 
@@ -308,6 +383,9 @@ function fakePipe(ref: Reference<ClassDeclaration>): PipeMeta {
     name,
     nameExpr: null,
     isStandalone: false,
+    decorator: null,
+    isExplicitlyDeferred: false,
+    isPure: false,
   };
 }
 
@@ -318,6 +396,7 @@ class MockDtsModuleScopeResolver implements DtsModuleScopeResolver {
 }
 
 function scopeToRefs(scopeData: ScopeData): Reference<ClassDeclaration>[] {
-  return scopeData.dependencies.map(dep => dep.ref)
-      .sort((a, b) => a.debugName!.localeCompare(b.debugName!));
+  return scopeData.dependencies
+    .map((dep) => dep.ref)
+    .sort((a, b) => a.debugName!.localeCompare(b.debugName!));
 }

@@ -3,16 +3,23 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
-import {APP_BASE_HREF, CommonModule, HashLocationStrategy, Location, LocationStrategy, PathLocationStrategy, PlatformLocation} from '@angular/common';
-import {Inject, InjectionToken, ModuleWithProviders, NgModule, Optional} from '@angular/core';
+import {
+  APP_BASE_HREF,
+  CommonModule,
+  HashLocationStrategy,
+  Location,
+  LocationStrategy,
+  PathLocationStrategy,
+  PlatformLocation,
+} from '../../index';
+import {inject, InjectionToken, ModuleWithProviders, NgModule} from '@angular/core';
 import {UpgradeModule} from '@angular/upgrade/static';
 
 import {$locationShim, $locationShimProvider} from './location_shim';
 import {AngularJSUrlCodec, UrlCodec} from './params';
-
 
 /**
  * Configuration options for LocationUpgrade.
@@ -48,15 +55,18 @@ export interface LocationUpgradeConfig {
  *
  * @publicApi
  */
-export const LOCATION_UPGRADE_CONFIGURATION =
-    new InjectionToken<LocationUpgradeConfig>('LOCATION_UPGRADE_CONFIGURATION');
+export const LOCATION_UPGRADE_CONFIGURATION = new InjectionToken<LocationUpgradeConfig>(
+  typeof ngDevMode !== undefined && ngDevMode ? 'LOCATION_UPGRADE_CONFIGURATION' : '',
+);
 
-const APP_BASE_HREF_RESOLVED = new InjectionToken<string>('APP_BASE_HREF_RESOLVED');
+const APP_BASE_HREF_RESOLVED = new InjectionToken<string>(
+  typeof ngDevMode !== undefined && ngDevMode ? 'APP_BASE_HREF_RESOLVED' : '',
+);
 
 /**
  * `NgModule` used for providing and configuring Angular's Unified Location Service for upgrading.
  *
- * @see [Using the Unified Angular Location Service](guide/upgrade#using-the-unified-angular-location-service)
+ * @see [Using the Unified Angular Location Service](https://angular.io/guide/upgrade#using-the-unified-angular-location-service)
  *
  * @publicApi
  */
@@ -70,30 +80,26 @@ export class LocationUpgradeModule {
         {
           provide: $locationShim,
           useFactory: provide$location,
-          deps: [UpgradeModule, Location, PlatformLocation, UrlCodec, LocationStrategy]
         },
         {provide: LOCATION_UPGRADE_CONFIGURATION, useValue: config ? config : {}},
-        {provide: UrlCodec, useFactory: provideUrlCodec, deps: [LOCATION_UPGRADE_CONFIGURATION]},
+        {provide: UrlCodec, useFactory: provideUrlCodec},
         {
           provide: APP_BASE_HREF_RESOLVED,
           useFactory: provideAppBaseHref,
-          deps: [LOCATION_UPGRADE_CONFIGURATION, [new Inject(APP_BASE_HREF), new Optional()]]
         },
         {
           provide: LocationStrategy,
           useFactory: provideLocationStrategy,
-          deps: [
-            PlatformLocation,
-            APP_BASE_HREF_RESOLVED,
-            LOCATION_UPGRADE_CONFIGURATION,
-          ]
         },
       ],
     };
   }
 }
 
-export function provideAppBaseHref(config: LocationUpgradeConfig, appBaseHref?: string) {
+function provideAppBaseHref() {
+  const config = inject(LOCATION_UPGRADE_CONFIGURATION);
+  const appBaseHref = inject(APP_BASE_HREF, {optional: true});
+
   if (config && config.appBaseHref != null) {
     return config.appBaseHref;
   } else if (appBaseHref != null) {
@@ -102,22 +108,29 @@ export function provideAppBaseHref(config: LocationUpgradeConfig, appBaseHref?: 
   return '';
 }
 
-export function provideUrlCodec(config: LocationUpgradeConfig) {
-  const codec = config && config.urlCodec || AngularJSUrlCodec;
+function provideUrlCodec() {
+  const config = inject(LOCATION_UPGRADE_CONFIGURATION);
+  const codec = (config && config.urlCodec) || AngularJSUrlCodec;
   return new (codec as any)();
 }
 
-export function provideLocationStrategy(
-    platformLocation: PlatformLocation, baseHref: string, options: LocationUpgradeConfig = {}) {
-  return options.useHash ? new HashLocationStrategy(platformLocation, baseHref) :
-                           new PathLocationStrategy(platformLocation, baseHref);
+function provideLocationStrategy() {
+  const platformLocation = inject(PlatformLocation);
+  const baseHref = inject(APP_BASE_HREF_RESOLVED);
+  const options = inject(LOCATION_UPGRADE_CONFIGURATION);
+  return options.useHash
+    ? new HashLocationStrategy(platformLocation, baseHref)
+    : new PathLocationStrategy(platformLocation, baseHref);
 }
 
-export function provide$location(
-    ngUpgrade: UpgradeModule, location: Location, platformLocation: PlatformLocation,
-    urlCodec: UrlCodec, locationStrategy: LocationStrategy) {
-  const $locationProvider =
-      new $locationShimProvider(ngUpgrade, location, platformLocation, urlCodec, locationStrategy);
+function provide$location() {
+  const $locationProvider = new $locationShimProvider(
+    inject(UpgradeModule),
+    inject(Location),
+    inject(PlatformLocation),
+    inject(UrlCodec),
+    inject(LocationStrategy),
+  );
 
   return $locationProvider.$get();
 }

@@ -3,10 +3,11 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
+import {FactoryTarget} from '../../compiler_facade_interface';
 import * as o from '../../output/output_ast';
-import {createFactoryType, FactoryTarget, R3FactoryMetadata} from '../r3_factory';
+import {createFactoryType, R3FactoryMetadata} from '../r3_factory';
 import {Identifiers as R3} from '../r3_identifiers';
 import {R3CompiledExpression} from '../util';
 import {DefinitionMap} from '../view/util';
@@ -28,7 +29,7 @@ export function compileDeclareFactoryFunction(meta: R3FactoryMetadata): R3Compil
   definitionMap.set('minVersion', o.literal(MINIMUM_PARTIAL_LINKER_VERSION));
   definitionMap.set('version', o.literal('0.0.0-PLACEHOLDER'));
   definitionMap.set('ngImport', o.importExpr(R3.core));
-  definitionMap.set('type', meta.internalType);
+  definitionMap.set('type', meta.type.value);
   definitionMap.set('deps', compileDependencies(meta.deps));
   definitionMap.set('target', o.importExpr(R3.FactoryTarget).prop(FactoryTarget[meta.target]));
 

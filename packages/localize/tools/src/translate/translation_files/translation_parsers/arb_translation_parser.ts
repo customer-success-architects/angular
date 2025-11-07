@@ -3,20 +3,20 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
-import {MessageId, ɵparseTranslation, ɵSourceMessage} from '@angular/localize';
+import {MessageId, ɵparseTranslation, ɵSourceMessage} from '../../../../../index';
 
 import {Diagnostics} from '../../../diagnostics';
 
 import {ParseAnalysis, ParsedTranslationBundle, TranslationParser} from './translation_parser';
 
-export interface ArbJsonObject extends Record<MessageId, ɵSourceMessage|ArbMetadata> {
+export interface ArbJsonObject extends Record<MessageId, ɵSourceMessage | ArbMetadata> {
   '@@locale': string;
 }
 
 export interface ArbMetadata {
-  type?: 'text'|'image'|'css';
+  type?: 'text' | 'image' | 'css';
   description?: string;
   ['x-locations']?: ArbLocation[];
 }
@@ -32,7 +32,7 @@ export interface ArbLocation {
  *
  * See https://github.com/google/app-resource-bundle/wiki/ApplicationResourceBundleSpecification
  *
- * ```
+ * ```json
  * {
  *   "@@locale": "en-US",
  *   "message-id": "Target message string",
@@ -53,14 +53,6 @@ export interface ArbLocation {
  * ```
  */
 export class ArbTranslationParser implements TranslationParser<ArbJsonObject> {
-  /**
-   * @deprecated
-   */
-  canParse(filePath: string, contents: string): ArbJsonObject|false {
-    const result = this.analyze(filePath, contents);
-    return result.canParse && result.hint;
-  }
-
   analyze(_filePath: string, contents: string): ParseAnalysis<ArbJsonObject> {
     const diagnostics = new Diagnostics();
     if (!contents.includes('"@@locale"')) {
@@ -75,8 +67,11 @@ export class ArbTranslationParser implements TranslationParser<ArbJsonObject> {
     }
   }
 
-  parse(_filePath: string, contents: string, arb: ArbJsonObject = this.tryParseArbFormat(contents)):
-      ParsedTranslationBundle {
+  parse(
+    _filePath: string,
+    contents: string,
+    arb: ArbJsonObject = this.tryParseArbFormat(contents),
+  ): ParsedTranslationBundle {
     const bundle: ParsedTranslationBundle = {
       locale: arb['@@locale'],
       translations: {},

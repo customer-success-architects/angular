@@ -14,16 +14,16 @@ the trigger name to bind the named animation to a specific triggering element in
 Angular animations are based on CSS web transition functionality, so anything that can be styled or
 transformed in CSS can be animated the same way in Angular. Angular animations allow you to:
 
-* Set animation timings, styles, keyframes, and transitions.
-* Animate HTML elements in complex sequences and choreographies.
-* Animate HTML elements as they are inserted and removed from the DOM, including responsive real-time
+- Set animation timings, styles, keyframes, and transitions.
+- Animate HTML elements in complex sequences and choreographies.
+- Animate HTML elements as they are inserted and removed from the DOM, including responsive real-time
   filtering.
-* Create reusable animations.
-* Animate parent and child elements.
+- Create reusable animations.
+- Animate parent and child elements.
 
 Additional animation functionality is provided in other Angular modules for animation testing, for
 route-based animations, and for programmatic animation controls that allow an end user to fast forward
 and reverse an animation sequence.
 
 @see Find out more in the [animations guide](guide/animations).
-@see See what polyfills you might need in the [browser support guide](guide/browser-support).
+@see See what polyfills you might need in the [browser support guide](reference/versions#browser-support).

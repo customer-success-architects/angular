@@ -3,10 +3,11 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
-import {exactMatchOptions, subsetMatchOptions} from '../src/router';
+import {TestBed} from '@angular/core/testing';
+import {exactMatchOptions, Router, subsetMatchOptions} from '../src/router';
 import {containsTree, DefaultUrlSerializer} from '../src/url_tree';
 
 describe('UrlTree', () => {
@@ -31,6 +32,31 @@ describe('UrlTree', () => {
       const tree = serializer.parse('/path/to?first=http://foo/bar?baz=true&second=123');
       expect(tree.queryParams).toEqual({'first': 'http://foo/bar?baz=true', 'second': '123'});
     });
+
+    it('create, serialize, parse, serialize results in same serialized tree with outlet and no primary children', () => {
+      const router = TestBed.inject(Router);
+      const th = router.createUrlTree(['/', {outlets: {a: ['a'], b: [{outlets: {a: ['b1']}}]}}]);
+      const serialized = router.serializeUrl(th);
+      const p = router.parseUrl(serialized);
+      expect(router.serializeUrl(p)).toBe(serialized);
+    });
+
+    it('should work with named outlet with primary and immediate named siblings', () => {
+      const router = TestBed.inject(Router);
+      const tree = router.createUrlTree([
+        {
+          outlets: {
+            primary: ['Home'],
+            app: ['Welcome'],
+            dock: [{outlets: {primary: 'left', 1: ['One', {pinned: true}]}}],
+          },
+        },
+      ]);
+      const url = tree.toString();
+      expect(url).toBe('/Home(app:Welcome//dock:/(left//1:One;pinned=true))');
+      const tree2 = serializer.parse(url);
+      expect(serializer.serialize(tree2)).toBe(url);
+    });
   });
 
   describe('containsTree', () => {
@@ -49,7 +75,7 @@ describe('UrlTree', () => {
         expect(containsTree(t1, t2, exactMatchOptions)).toBe(true);
       });
 
-      it('should return true when queryParams are the same but with diffrent order', () => {
+      it('should return true when queryParams are the same but with different order', () => {
         const t1 = serializer.parse('/one/two?test=1&page=5');
         const t2 = serializer.parse('/one/two?page=5&test=1');
         expect(containsTree(t1, t2, exactMatchOptions)).toBe(true);
@@ -254,13 +280,15 @@ describe('UrlTree', () => {
           expect(containsTree(t1, t2, {...subsetMatchOptions, matrixParams})).toBe(true);
         });
 
-        it('should return true when matrix params match on subset of urlTree match ' +
-               'with container paths split into multiple segments',
-           () => {
-             const t1 = serializer.parse('/one;a=1/(two;b=2//left:three)');
-             const t2 = serializer.parse('/one;a=1/two;b=2');
-             expect(containsTree(t1, t2, {...subsetMatchOptions, matrixParams})).toBe(true);
-           });
+        it(
+          'should return true when matrix params match on subset of urlTree match ' +
+            'with container paths split into multiple segments',
+          () => {
+            const t1 = serializer.parse('/one;a=1/(two;b=2//left:three)');
+            const t2 = serializer.parse('/one;a=1/two;b=2');
+            expect(containsTree(t1, t2, {...subsetMatchOptions, matrixParams})).toBe(true);
+          },
+        );
       });
 
       describe('subset match', () => {
@@ -290,13 +318,15 @@ describe('UrlTree', () => {
           expect(containsTree(t1, t2, {...subsetMatchOptions, matrixParams})).toBe(true);
         });
 
-        it('should return true when matrix params match on subset of urlTree match ' +
-               'with container paths split into multiple segments',
-           () => {
-             const t1 = serializer.parse('/one;a=1/(two;b=2//left:three)');
-             const t2 = serializer.parse('/one;a=1/two');
-             expect(containsTree(t1, t2, {...subsetMatchOptions, matrixParams})).toBe(true);
-           });
+        it(
+          'should return true when matrix params match on subset of urlTree match ' +
+            'with container paths split into multiple segments',
+          () => {
+            const t1 = serializer.parse('/one;a=1/(two;b=2//left:three)');
+            const t2 = serializer.parse('/one;a=1/two');
+            expect(containsTree(t1, t2, {...subsetMatchOptions, matrixParams})).toBe(true);
+          },
+        );
       });
     });
   });

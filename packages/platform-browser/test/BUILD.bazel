@@ -1,61 +1,59 @@
-load("//tools:defaults.bzl", "jasmine_node_test", "karma_web_test_suite", "ts_library")
-load("//tools/circular_dependency_test:index.bzl", "circular_dependency_test")
+load("//tools:defaults.bzl", "angular_jasmine_test", "copy_to_bin", "js_library", "ng_web_test_suite", "ts_project")
 
-exports_files([
-    "browser/static_assets/200.html",
-    "static_assets/test.html",
-])
-
-circular_dependency_test(
-    name = "circular_deps_test",
-    entry_point = "angular/packages/platform-browser/index.js",
-    deps = ["//packages/platform-browser"],
+copy_to_bin(
+    name = "static_assets",
+    srcs = [
+        "browser/static_assets/200.html",
+        "static_assets/test.html",
+    ],
+    visibility = [
+        "//packages/platform-browser-dynamic/test:__subpackages__",
+    ],
 )
 
-circular_dependency_test(
-    name = "testing_circular_deps_test",
-    entry_point = "angular/packages/platform-browser/testing/index.js",
-    deps = ["//packages/platform-browser/testing"],
-)
-
-ts_library(
+ts_project(
     name = "test_lib",
     testonly = True,
     srcs = glob(["**/*.ts"]),
     deps = [
+        "//:node_modules/rxjs",
+        "//:node_modules/zone.js",
         "//packages:types",
         "//packages/animations",
         "//packages/animations/browser",
         "//packages/animations/browser/testing",
         "//packages/common",
+        "//packages/common/http",
+        "//packages/common/http/testing",
         "//packages/compiler",
         "//packages/core",
         "//packages/core/testing",
         "//packages/platform-browser",
-        "//packages/platform-browser-dynamic",
         "//packages/platform-browser/animations",
         "//packages/platform-browser/testing",
         "//packages/private/testing",
-        "@npm//rxjs",
     ],
 )
 
-jasmine_node_test(
+js_library(
+    name = "zone_event_unpatched_init_lib",
+    srcs = ["dom/events/zone_event_unpatched.init.mjs"],
+)
+
+angular_jasmine_test(
     name = "test",
-    bootstrap = ["//tools/testing:node_es2015"],
-    deps = [
+    data = [
         ":test_lib",
     ],
 )
 
-karma_web_test_suite(
+ng_web_test_suite(
     name = "test_web",
     bootstrap = [
-        "dom/events/zone_event_unpatched_init.js",
-        "//:web_test_bootstrap_scripts",
+        ":zone_event_unpatched_init_lib",
     ],
-    static_files = [
-        ":static_assets/test.html",
+    data = [
+        ":static_assets",
     ],
     deps = [
         ":test_lib",

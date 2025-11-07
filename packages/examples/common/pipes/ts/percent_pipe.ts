@@ -3,10 +3,10 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
-import {registerLocaleData} from '@angular/common';
+import {registerLocaleData, PercentPipe} from '@angular/common';
 import {Component} from '@angular/core';
 // we need to import data for the french locale
 import localeFr from './locale-fr';
@@ -17,16 +17,17 @@ registerLocaleData(localeFr);
 // #docregion PercentPipe
 @Component({
   selector: 'percent-pipe',
+  imports: [PercentPipe],
   template: `<div>
     <!--output '26%'-->
-    <p>A: {{a | percent}}</p>
+    <p>A: {{ a | percent }}</p>
 
     <!--output '0,134.950%'-->
-    <p>B: {{b | percent:'4.3-5'}}</p>
+    <p>B: {{ b | percent: '4.3-5' }}</p>
 
     <!--output '0 134,950 %'-->
-    <p>B: {{b | percent:'4.3-5':'fr'}}</p>
-  </div>`
+    <p>B: {{ b | percent: '4.3-5' : 'fr' }}</p>
+  </div>`,
 })
 export class PercentPipeComponent {
   a: number = 0.259;

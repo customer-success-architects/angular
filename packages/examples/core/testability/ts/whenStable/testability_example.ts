@@ -3,18 +3,17 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
-import {Component, NgModule} from '@angular/core';
-import {BrowserModule} from '@angular/platform-browser';
+import {Component} from '@angular/core';
 
 @Component({
   selector: 'example-app',
   template: `
     <button class="start-button" (click)="start()">Start long-running task</button>
-    <div class="status">Status: {{status}}</div>
-  `
+    <div class="status">Status: {{ status }}</div>
+  `,
 })
 export class StableTestCmp {
   status = 'none';
@@ -24,8 +23,4 @@ export class StableTestCmp {
       this.status = 'done';
     }, 5000);
   }
-}
-
-@NgModule({imports: [BrowserModule], declarations: [StableTestCmp], bootstrap: [StableTestCmp]})
-export class AppModule {
 }

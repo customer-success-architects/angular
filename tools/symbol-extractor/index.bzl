@@ -1,43 +1,38 @@
 # Copyright Google LLC All Rights Reserved.
 #
 # Use of this source code is governed by an MIT-style license that can be
-# found in the LICENSE file at https://angular.io/license
+# found in the LICENSE file at https://angular.dev/license
 
-load("//tools:defaults.bzl", "nodejs_binary", "nodejs_test")
+load("//tools:defaults.bzl", "js_binary", "js_test")
 
 """
   This test verifies that a set of top level symbols from a javascript file match a gold file.
 """
 
-def js_expected_symbol_test(name, src, golden, data = [], **kwargs):
+def js_expected_symbol_test(name, bundles_dir, golden, data = [], **kwargs):
     """This test verifies that a set of top level symbols from a javascript file match a gold file.
     """
     all_data = data + [
-        src,
-        golden,
         Label("//tools/symbol-extractor:lib"),
-        Label("@npm//typescript"),
+        bundles_dir,
+        golden,
     ]
-    entry_point = "//tools/symbol-extractor:cli.ts"
+    entry_point = "//tools/symbol-extractor:cli.mjs"
 
-    nodejs_test(
+    js_test(
         name = name,
         data = all_data,
         entry_point = entry_point,
         tags = kwargs.pop("tags", []) + ["symbol_extractor"],
-        # Disable the linker and rely on patched resolution which works better on Windows
-        # and is less prone to race conditions when targets build concurrently.
-        templated_args = ["--nobazel_run_linker", "$(rootpath %s)" % src, "$(rootpath %s)" % golden],
+        fixed_args = ["$(rootpath %s)" % bundles_dir, "$(rootpath %s)" % golden],
         **kwargs
     )
 
-    nodejs_binary(
+    js_binary(
         name = name + ".accept",
         testonly = True,
         data = all_data,
         entry_point = entry_point,
-        # Disable the linker and rely on patched resolution which works better on Windows
-        # and is less prone to race conditions when targets build concurrently.
-        templated_args = ["--nobazel_run_linker", "$(rootpath %s)" % src, "$(rootpath %s)" % golden, "--accept"],
+        fixed_args = ["$(rootpath %s)" % bundles_dir, "$(rootpath %s)" % golden, "--accept"],
         **kwargs
     )

@@ -3,22 +3,24 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
+import domino from '../src/bundled-domino';
 import {applyShims} from '../src/shims';
 
 describe('applyShims()', () => {
-  if (isBrowser) return;  // NODE only
-
-  const domino = require('domino');
   const globalClone = {...global};
 
   afterEach(() => {
     // Un-patch `global`.
-    const currentProps = Object.keys(global) as (keyof NodeJS.Global)[];
+    const currentProps = Object.keys(global);
     for (const prop of currentProps) {
+      if (prop === 'crypto') {
+        // crypto is a getter and cannot be changed
+        continue;
+      }
       if (globalClone.hasOwnProperty(prop)) {
-        (global as any)[prop] = globalClone[prop];
+        (global as any)[prop] = (globalClone as any)[prop];
       } else {
         delete (global as any)[prop];
       }

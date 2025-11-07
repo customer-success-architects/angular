@@ -1,17 +1,20 @@
-load("//tools:defaults.bzl", "jasmine_node_test", "ts_library")
+load("//tools:defaults.bzl", "jasmine_test", "ts_project")
 
 package(default_visibility = ["//visibility:public"])
 
-ts_library(
+ts_project(
     name = "test_lib",
     testonly = True,
     srcs = glob([
         "**/*.ts",
     ]),
     deps = [
+        "//:node_modules/typescript",
         "//packages:types",
         "//packages/compiler",
+        "//packages/compiler-cli/src/ngtsc/annotations/common",
         "//packages/compiler-cli/src/ngtsc/annotations/directive",
+        "//packages/compiler-cli/src/ngtsc/diagnostics",
         "//packages/compiler-cli/src/ngtsc/file_system",
         "//packages/compiler-cli/src/ngtsc/file_system/testing",
         "//packages/compiler-cli/src/ngtsc/imports",
@@ -21,14 +24,13 @@ ts_library(
         "//packages/compiler-cli/src/ngtsc/reflection",
         "//packages/compiler-cli/src/ngtsc/scope",
         "//packages/compiler-cli/src/ngtsc/testing",
-        "@npm//typescript",
+        "//packages/compiler-cli/src/ngtsc/transform",
     ],
 )
 
-jasmine_node_test(
+jasmine_test(
     name = "test",
-    bootstrap = ["//tools/testing:node_no_angular_es2015"],
-    deps = [
+    data = [
         ":test_lib",
     ],
 )

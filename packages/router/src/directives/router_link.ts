@@ -3,20 +3,38 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
 import {LocationStrategy} from '@angular/common';
-import {Attribute, Directive, ElementRef, HostBinding, HostListener, Input, OnChanges, OnDestroy, Renderer2, SimpleChanges, ɵcoerceToBoolean as coerceToBoolean} from '@angular/core';
+import {
+  Attribute,
+  booleanAttribute,
+  Directive,
+  ElementRef,
+  HostAttributeToken,
+  HostBinding,
+  HostListener,
+  inject,
+  Input,
+  OnChanges,
+  OnDestroy,
+  Renderer2,
+  ɵRuntimeError as RuntimeError,
+  signal,
+  SimpleChanges,
+  untracked,
+  ɵINTERNAL_APPLICATION_ERROR_HANDLER,
+} from '@angular/core';
 import {Subject, Subscription} from 'rxjs';
-
+import {RuntimeErrorCode} from '../errors';
 import {Event, NavigationEnd} from '../events';
 import {QueryParamsHandling} from '../models';
 import {Router} from '../router';
+import {ROUTER_CONFIGURATION} from '../router_config';
 import {ActivatedRoute} from '../router_state';
 import {Params} from '../shared';
-import {UrlTree} from '../url_tree';
-
+import {isUrlTree, UrlTree} from '../url_tree';
 
 /**
  * @description
@@ -42,7 +60,7 @@ import {UrlTree} from '../url_tree';
  * For instance, suppose the current URL is `/user/(box//aux:team)`.
  * The link `<a [routerLink]="['/user/jim']">Jim</a>` creates the URL
  * `/user/(jim//aux:team)`.
- * See {@link Router#createUrlTree createUrlTree} for more information.
+ * See {@link Router#createUrlTree} for more information.
  *
  * @usageNotes
  *
@@ -62,7 +80,7 @@ import {UrlTree} from '../url_tree';
  *
  * The following link adds a query parameter and a fragment to the generated URL:
  *
- * ```
+ * ```html
  * <a [routerLink]="['/user/bob']" [queryParams]="{debug: true}" fragment="education">
  *   link to user component
  * </a>
@@ -79,13 +97,16 @@ import {UrlTree} from '../url_tree';
  *
  * For example:
  *
- * ```
+ * ```html
  * <a [routerLink]="['/user/bob']" [queryParams]="{debug: true}" queryParamsHandling="merge">
  *   link to user component
  * </a>
  * ```
  *
- * See {@link UrlCreationOptions.queryParamsHandling UrlCreationOptions#queryParamsHandling}.
+ * `queryParams`, `fragment`, `queryParamsHandling`, `preserveFragment`, and `relativeTo`
+ * cannot be used when the `routerLink` input is a `UrlTree`.
+ *
+ * See {@link UrlCreationOptions#queryParamsHandling}.
  *
  * ### Preserving navigation history
  *
@@ -93,17 +114,17 @@ import {UrlTree} from '../url_tree';
  * [`History.state` property](https://developer.mozilla.org/en-US/docs/Web/API/History#Properties).
  * For example:
  *
- * ```
+ * ```html
  * <a [routerLink]="['/user/bob']" [state]="{tracingId: 123}">
  *   link to user component
  * </a>
  * ```
  *
- * Use {@link Router.getCurrentNavigation() Router#getCurrentNavigation} to retrieve a saved
+ * Use {@link Router#getCurrentNavigation} to retrieve a saved
  * navigation-state value. For example, to capture the `tracingId` during the `NavigationStart`
  * event:
  *
- * ```
+ * ```ts
  * // Get NavigationStart events
  * router.events.pipe(filter(e => e instanceof NavigationStart)).subscribe(e => {
  *   const navigation = router.getCurrentNavigation();
@@ -111,330 +132,345 @@ import {UrlTree} from '../url_tree';
  * });
  * ```
  *
+ * ### RouterLink compatible custom elements
+ *
+ * In order to make a custom element work with routerLink, the corresponding custom
+ * element must implement the `href` attribute and must list `href` in the array of
+ * the static property/getter `observedAttributes`.
+ *
  * @ngModule RouterModule
  *
  * @publicApi
  */
 @Directive({
-  selector: ':not(a):not(area)[routerLink]',
-  standalone: true,
+  selector: '[routerLink]',
+  host: {
+    '[attr.href]': 'reactiveHref()',
+  },
 })
-export class RouterLink implements OnChanges {
+export class RouterLink implements OnChanges, OnDestroy {
+  /** @nodoc */
+  protected readonly reactiveHref = signal<string | null>(null);
   /**
-   * Passed to {@link Router#createUrlTree Router#createUrlTree} as part of the
-   * `UrlCreationOptions`.
-   * @see {@link UrlCreationOptions#queryParams UrlCreationOptions#queryParams}
-   * @see {@link Router#createUrlTree Router#createUrlTree}
+   * Represents an `href` attribute value applied to a host element,
+   * when a host element is an `<a>`/`<area>` tag or a compatible custom element.
+   * For other tags, the value is `null`.
    */
-  @Input() queryParams?: Params|null;
+  get href() {
+    return untracked(this.reactiveHref);
+  }
+  /** @deprecated */
+  set href(value: string | null) {
+    this.reactiveHref.set(value);
+  }
+
   /**
-   * Passed to {@link Router#createUrlTree Router#createUrlTree} as part of the
+   * Represents the `target` attribute on a host element.
+   * This is only used when the host element is
+   * an `<a>`/`<area>` tag or a compatible custom element.
+   */
+  @HostBinding('attr.target') @Input() target?: string;
+
+  /**
+   * Passed to {@link Router#createUrlTree} as part of the
    * `UrlCreationOptions`.
-   * @see {@link UrlCreationOptions#fragment UrlCreationOptions#fragment}
-   * @see {@link Router#createUrlTree Router#createUrlTree}
+   * @see {@link UrlCreationOptions#queryParams}
+   * @see {@link Router#createUrlTree}
+   */
+  @Input() queryParams?: Params | null;
+  /**
+   * Passed to {@link Router#createUrlTree} as part of the
+   * `UrlCreationOptions`.
+   * @see {@link UrlCreationOptions#fragment}
+   * @see {@link Router#createUrlTree}
    */
   @Input() fragment?: string;
   /**
-   * Passed to {@link Router#createUrlTree Router#createUrlTree} as part of the
+   * Passed to {@link Router#createUrlTree} as part of the
    * `UrlCreationOptions`.
-   * @see {@link UrlCreationOptions#queryParamsHandling UrlCreationOptions#queryParamsHandling}
-   * @see {@link Router#createUrlTree Router#createUrlTree}
+   * @see {@link UrlCreationOptions#queryParamsHandling}
+   * @see {@link Router#createUrlTree}
    */
-  @Input() queryParamsHandling?: QueryParamsHandling|null;
+  @Input() queryParamsHandling?: QueryParamsHandling | null;
   /**
-   * Passed to {@link Router#createUrlTree Router#createUrlTree} as part of the
-   * `UrlCreationOptions`.
-   * @see {@link UrlCreationOptions#preserveFragment UrlCreationOptions#preserveFragment}
-   * @see {@link Router#createUrlTree Router#createUrlTree}
-   */
-  // TODO(issue/24571): remove '!'.
-  @Input() preserveFragment!: boolean;
-  /**
-   * Passed to {@link Router#navigateByUrl Router#navigateByUrl} as part of the
+   * Passed to {@link Router#navigateByUrl} as part of the
    * `NavigationBehaviorOptions`.
-   * @see {@link NavigationBehaviorOptions#skipLocationChange NavigationBehaviorOptions#skipLocationChange}
-   * @see {@link Router#navigateByUrl Router#navigateByUrl}
-   */
-  // TODO(issue/24571): remove '!'.
-  @Input() skipLocationChange!: boolean;
-  /**
-   * Passed to {@link Router#navigateByUrl Router#navigateByUrl} as part of the
-   * `NavigationBehaviorOptions`.
-   * @see {@link NavigationBehaviorOptions#replaceUrl NavigationBehaviorOptions#replaceUrl}
-   * @see {@link Router#navigateByUrl Router#navigateByUrl}
-   */
-  // TODO(issue/24571): remove '!'.
-  @Input() replaceUrl!: boolean;
-  /**
-   * Passed to {@link Router#navigateByUrl Router#navigateByUrl} as part of the
-   * `NavigationBehaviorOptions`.
-   * @see {@link NavigationBehaviorOptions#state NavigationBehaviorOptions#state}
-   * @see {@link Router#navigateByUrl Router#navigateByUrl}
+   * @see {@link NavigationBehaviorOptions#state}
+   * @see {@link Router#navigateByUrl}
    */
   @Input() state?: {[k: string]: any};
   /**
-   * Passed to {@link Router#createUrlTree Router#createUrlTree} as part of the
+   * Passed to {@link Router#navigateByUrl} as part of the
+   * `NavigationBehaviorOptions`.
+   * @see {@link NavigationBehaviorOptions#info}
+   * @see {@link Router#navigateByUrl}
+   */
+  @Input() info?: unknown;
+  /**
+   * Passed to {@link Router#createUrlTree} as part of the
    * `UrlCreationOptions`.
    * Specify a value here when you do not want to use the default value
    * for `routerLink`, which is the current activated route.
    * Note that a value of `undefined` here will use the `routerLink` default.
-   * @see {@link UrlCreationOptions#relativeTo UrlCreationOptions#relativeTo}
-   * @see {@link Router#createUrlTree Router#createUrlTree}
+   * @see {@link UrlCreationOptions#relativeTo}
+   * @see {@link Router#createUrlTree}
    */
-  @Input() relativeTo?: ActivatedRoute|null;
+  @Input() relativeTo?: ActivatedRoute | null;
 
-  private commands: any[]|null = null;
+  /** Whether a host element is an `<a>`/`<area>` tag or a compatible custom element. */
+  private isAnchorElement: boolean;
+
+  private subscription?: Subscription;
 
   /** @internal */
   onChanges = new Subject<RouterLink>();
 
+  private readonly applicationErrorHandler = inject(ɵINTERNAL_APPLICATION_ERROR_HANDLER);
+  private readonly options = inject(ROUTER_CONFIGURATION, {optional: true});
+
   constructor(
-      private router: Router, private route: ActivatedRoute,
-      @Attribute('tabindex') private readonly tabIndexAttribute: string|null|undefined,
-      private readonly renderer: Renderer2, private readonly el: ElementRef) {
-    this.setTabIndexIfNotOnNativeEl('0');
+    private router: Router,
+    private route: ActivatedRoute,
+    @Attribute('tabindex') private readonly tabIndexAttribute: string | null | undefined,
+    private readonly renderer: Renderer2,
+    private readonly el: ElementRef,
+    private locationStrategy?: LocationStrategy,
+  ) {
+    // Set the initial href value to whatever exists on the host element already
+    this.reactiveHref.set(inject(new HostAttributeToken('href'), {optional: true}));
+    const tagName = el.nativeElement.tagName?.toLowerCase();
+    this.isAnchorElement =
+      tagName === 'a' ||
+      tagName === 'area' ||
+      !!(
+        // Avoid breaking in an SSR context where customElements might not be defined.
+        (
+          typeof customElements === 'object' &&
+          // observedAttributes is an optional static property/getter on a custom element.
+          // The spec states that this must be an array of strings.
+          (
+            customElements.get(tagName) as {observedAttributes?: string[]} | undefined
+          )?.observedAttributes?.includes?.('href')
+        )
+      );
+
+    if (!this.isAnchorElement) {
+      this.subscribeToNavigationEventsIfNecessary();
+    } else {
+      this.setTabIndexIfNotOnNativeEl('0');
+    }
   }
+
+  private subscribeToNavigationEventsIfNecessary() {
+    if (this.subscription !== undefined || !this.isAnchorElement) {
+      return;
+    }
+
+    // preserving fragment in router state
+    let createSubcription = this.preserveFragment;
+    // preserving or merging with query params in router state
+    const dependsOnRouterState = (handling?: QueryParamsHandling | null) =>
+      handling === 'merge' || handling === 'preserve';
+    createSubcription ||= dependsOnRouterState(this.queryParamsHandling);
+    createSubcription ||=
+      !this.queryParamsHandling && !dependsOnRouterState(this.options?.defaultQueryParamsHandling);
+    if (!createSubcription) {
+      return;
+    }
+
+    this.subscription = this.router.events.subscribe((s: Event) => {
+      if (s instanceof NavigationEnd) {
+        this.updateHref();
+      }
+    });
+  }
+
+  /**
+   * Passed to {@link Router#createUrlTree} as part of the
+   * `UrlCreationOptions`.
+   * @see {@link UrlCreationOptions#preserveFragment}
+   * @see {@link Router#createUrlTree}
+   */
+  @Input({transform: booleanAttribute}) preserveFragment: boolean = false;
+
+  /**
+   * Passed to {@link Router#navigateByUrl} as part of the
+   * `NavigationBehaviorOptions`.
+   * @see {@link NavigationBehaviorOptions#skipLocationChange}
+   * @see {@link Router#navigateByUrl}
+   */
+  @Input({transform: booleanAttribute}) skipLocationChange: boolean = false;
+
+  /**
+   * Passed to {@link Router#navigateByUrl} as part of the
+   * `NavigationBehaviorOptions`.
+   * @see {@link NavigationBehaviorOptions#replaceUrl}
+   * @see {@link Router#navigateByUrl}
+   */
+  @Input({transform: booleanAttribute}) replaceUrl: boolean = false;
 
   /**
    * Modifies the tab index if there was not a tabindex attribute on the element during
    * instantiation.
    */
-  private setTabIndexIfNotOnNativeEl(newTabIndex: string|null) {
-    if (this.tabIndexAttribute != null /* both `null` and `undefined` */) {
+  private setTabIndexIfNotOnNativeEl(newTabIndex: string | null) {
+    if (this.tabIndexAttribute != null /* both `null` and `undefined` */ || this.isAnchorElement) {
       return;
     }
-    const renderer = this.renderer;
-    const nativeElement = this.el.nativeElement;
-    if (newTabIndex !== null) {
-      renderer.setAttribute(nativeElement, 'tabindex', newTabIndex);
-    } else {
-      renderer.removeAttribute(nativeElement, 'tabindex');
-    }
+    this.applyAttributeValue('tabindex', newTabIndex);
   }
 
-  /** @nodoc */
-  ngOnChanges(changes: SimpleChanges) {
+  /** @docs-private */
+  // TODO(atscott): Remove changes parameter in major version as a breaking change.
+  ngOnChanges(changes?: SimpleChanges): void {
+    if (
+      ngDevMode &&
+      isUrlTree(this.routerLinkInput) &&
+      (this.fragment !== undefined ||
+        this.queryParams ||
+        this.queryParamsHandling ||
+        this.preserveFragment ||
+        this.relativeTo)
+    ) {
+      throw new RuntimeError(
+        RuntimeErrorCode.INVALID_ROUTER_LINK_INPUTS,
+        'Cannot configure queryParams or fragment when using a UrlTree as the routerLink input value.',
+      );
+    }
+    if (this.isAnchorElement) {
+      this.updateHref();
+      this.subscribeToNavigationEventsIfNecessary();
+    }
     // This is subscribed to by `RouterLinkActive` so that it knows to update when there are changes
     // to the RouterLinks it's tracking.
     this.onChanges.next(this);
   }
 
+  private routerLinkInput: readonly any[] | UrlTree | null = null;
+
   /**
-   * Commands to pass to {@link Router#createUrlTree Router#createUrlTree}.
-   *   - **array**: commands to pass to {@link Router#createUrlTree Router#createUrlTree}.
+   * Commands to pass to {@link Router#createUrlTree} or a `UrlTree`.
+   *   - **array**: commands to pass to {@link Router#createUrlTree}.
    *   - **string**: shorthand for array of commands with just the string, i.e. `['/route']`
+   *   - **UrlTree**: a `UrlTree` for this link rather than creating one from the commands
+   *     and other inputs that correspond to properties of `UrlCreationOptions`.
    *   - **null|undefined**: effectively disables the `routerLink`
-   * @see {@link Router#createUrlTree Router#createUrlTree}
+   * @see {@link Router#createUrlTree}
    */
   @Input()
-  set routerLink(commands: any[]|string|null|undefined) {
-    if (commands != null) {
-      this.commands = Array.isArray(commands) ? commands : [commands];
-      this.setTabIndexIfNotOnNativeEl('0');
-    } else {
-      this.commands = null;
+  set routerLink(commandsOrUrlTree: readonly any[] | string | UrlTree | null | undefined) {
+    if (commandsOrUrlTree == null) {
+      this.routerLinkInput = null;
       this.setTabIndexIfNotOnNativeEl(null);
+    } else {
+      if (isUrlTree(commandsOrUrlTree)) {
+        this.routerLinkInput = commandsOrUrlTree;
+      } else {
+        this.routerLinkInput = Array.isArray(commandsOrUrlTree)
+          ? commandsOrUrlTree
+          : [commandsOrUrlTree];
+      }
+      this.setTabIndexIfNotOnNativeEl('0');
     }
   }
 
-  /** @nodoc */
-  @HostListener('click')
-  onClick(): boolean {
-    if (this.urlTree === null) {
+  /** @docs-private */
+  @HostListener('click', [
+    '$event.button',
+    '$event.ctrlKey',
+    '$event.shiftKey',
+    '$event.altKey',
+    '$event.metaKey',
+  ])
+  onClick(
+    button: number,
+    ctrlKey: boolean,
+    shiftKey: boolean,
+    altKey: boolean,
+    metaKey: boolean,
+  ): boolean {
+    const urlTree = this.urlTree;
+
+    if (urlTree === null) {
       return true;
     }
 
+    if (this.isAnchorElement) {
+      if (button !== 0 || ctrlKey || shiftKey || altKey || metaKey) {
+        return true;
+      }
+
+      if (typeof this.target === 'string' && this.target != '_self') {
+        return true;
+      }
+    }
+
     const extras = {
-      skipLocationChange: coerceToBoolean(this.skipLocationChange),
-      replaceUrl: coerceToBoolean(this.replaceUrl),
+      skipLocationChange: this.skipLocationChange,
+      replaceUrl: this.replaceUrl,
       state: this.state,
+      info: this.info,
     };
-    this.router.navigateByUrl(this.urlTree, extras);
-    return true;
+    // navigateByUrl is mocked frequently in tests... Reduce breakages when adding `catch`
+    this.router.navigateByUrl(urlTree, extras)?.catch((e) => {
+      this.applicationErrorHandler(e);
+    });
+
+    // Return `false` for `<a>` elements to prevent default action
+    // and cancel the native behavior, since the navigation is handled
+    // by the Router.
+    return !this.isAnchorElement;
   }
 
-  get urlTree(): UrlTree|null {
-    if (this.commands === null) {
-      return null;
+  /** @docs-private */
+  ngOnDestroy(): any {
+    this.subscription?.unsubscribe();
+  }
+
+  private updateHref(): void {
+    const urlTree = this.urlTree;
+    this.reactiveHref.set(
+      urlTree !== null && this.locationStrategy
+        ? (this.locationStrategy?.prepareExternalUrl(this.router.serializeUrl(urlTree)) ?? '')
+        : null,
+    );
+  }
+
+  private applyAttributeValue(attrName: string, attrValue: string | null) {
+    const renderer = this.renderer;
+    const nativeElement = this.el.nativeElement;
+    if (attrValue !== null) {
+      renderer.setAttribute(nativeElement, attrName, attrValue);
+    } else {
+      renderer.removeAttribute(nativeElement, attrName);
     }
-    return this.router.createUrlTree(this.commands, {
+  }
+
+  get urlTree(): UrlTree | null {
+    if (this.routerLinkInput === null) {
+      return null;
+    } else if (isUrlTree(this.routerLinkInput)) {
+      return this.routerLinkInput;
+    }
+    return this.router.createUrlTree(this.routerLinkInput, {
       // If the `relativeTo` input is not defined, we want to use `this.route` by default.
       // Otherwise, we should use the value provided by the user in the input.
       relativeTo: this.relativeTo !== undefined ? this.relativeTo : this.route,
       queryParams: this.queryParams,
       fragment: this.fragment,
       queryParamsHandling: this.queryParamsHandling,
-      preserveFragment: coerceToBoolean(this.preserveFragment),
+      preserveFragment: this.preserveFragment,
     });
   }
 }
 
 /**
  * @description
+ * An alias for the `RouterLink` directive.
+ * Deprecated since v15, use `RouterLink` directive instead.
  *
- * Lets you link to specific routes in your app.
- *
- * See `RouterLink` for more information.
- *
- * @ngModule RouterModule
- *
+export { RouterLink as RouterLinkWithHref };
+nstead.
  * @publicApi
  */
-@Directive({selector: 'a[routerLink],area[routerLink]', standalone: true})
-export class RouterLinkWithHref implements OnChanges, OnDestroy {
-  // TODO(issue/24571): remove '!'.
-  @HostBinding('attr.target') @Input() target!: string;
-  /**
-   * Passed to {@link Router#createUrlTree Router#createUrlTree} as part of the
-   * `UrlCreationOptions`.
-   * @see {@link UrlCreationOptions#queryParams UrlCreationOptions#queryParams}
-   * @see {@link Router#createUrlTree Router#createUrlTree}
-   */
-  @Input() queryParams?: Params|null;
-  /**
-   * Passed to {@link Router#createUrlTree Router#createUrlTree} as part of the
-   * `UrlCreationOptions`.
-   * @see {@link UrlCreationOptions#fragment UrlCreationOptions#fragment}
-   * @see {@link Router#createUrlTree Router#createUrlTree}
-   */
-  @Input() fragment?: string;
-  /**
-   * Passed to {@link Router#createUrlTree Router#createUrlTree} as part of the
-   * `UrlCreationOptions`.
-   * @see {@link UrlCreationOptions#queryParamsHandling UrlCreationOptions#queryParamsHandling}
-   * @see {@link Router#createUrlTree Router#createUrlTree}
-   */
-  @Input() queryParamsHandling?: QueryParamsHandling|null;
-  /**
-   * Passed to {@link Router#createUrlTree Router#createUrlTree} as part of the
-   * `UrlCreationOptions`.
-   * @see {@link UrlCreationOptions#preserveFragment UrlCreationOptions#preserveFragment}
-   * @see {@link Router#createUrlTree Router#createUrlTree}
-   */
-  // TODO(issue/24571): remove '!'.
-  @Input() preserveFragment!: boolean;
-  /**
-   * Passed to {@link Router#navigateByUrl Router#navigateByUrl} as part of the
-   * `NavigationBehaviorOptions`.
-   * @see {@link NavigationBehaviorOptions#skipLocationChange NavigationBehaviorOptions#skipLocationChange}
-   * @see {@link Router#navigateByUrl Router#navigateByUrl}
-   */
-  // TODO(issue/24571): remove '!'.
-  @Input() skipLocationChange!: boolean;
-  /**
-   * Passed to {@link Router#navigateByUrl Router#navigateByUrl} as part of the
-   * `NavigationBehaviorOptions`.
-   * @see {@link NavigationBehaviorOptions#replaceUrl NavigationBehaviorOptions#replaceUrl}
-   * @see {@link Router#navigateByUrl Router#navigateByUrl}
-   */
-  // TODO(issue/24571): remove '!'.
-  @Input() replaceUrl!: boolean;
-  /**
-   * Passed to {@link Router#navigateByUrl Router#navigateByUrl} as part of the
-   * `NavigationBehaviorOptions`.
-   * @see {@link NavigationBehaviorOptions#state NavigationBehaviorOptions#state}
-   * @see {@link Router#navigateByUrl Router#navigateByUrl}
-   */
-  @Input() state?: {[k: string]: any};
-  /**
-   * Passed to {@link Router#createUrlTree Router#createUrlTree} as part of the
-   * `UrlCreationOptions`.
-   * Specify a value here when you do not want to use the default value
-   * for `routerLink`, which is the current activated route.
-   * Note that a value of `undefined` here will use the `routerLink` default.
-   * @see {@link UrlCreationOptions#relativeTo UrlCreationOptions#relativeTo}
-   * @see {@link Router#createUrlTree Router#createUrlTree}
-   */
-  @Input() relativeTo?: ActivatedRoute|null;
-
-  private commands: any[]|null = null;
-  private subscription: Subscription;
-
-  // the url displayed on the anchor element.
-  // @HostBinding('attr.href') is used rather than @HostBinding() because it removes the
-  // href attribute when it becomes `null`.
-  @HostBinding('attr.href') href: string|null = null;
-
-  /** @internal */
-  onChanges = new Subject<RouterLinkWithHref>();
-
-  constructor(
-      private router: Router, private route: ActivatedRoute,
-      private locationStrategy: LocationStrategy) {
-    this.subscription = router.events.subscribe((s: Event) => {
-      if (s instanceof NavigationEnd) {
-        this.updateTargetUrlAndHref();
-      }
-    });
-  }
-
-  /**
-   * Commands to pass to {@link Router#createUrlTree Router#createUrlTree}.
-   *   - **array**: commands to pass to {@link Router#createUrlTree Router#createUrlTree}.
-   *   - **string**: shorthand for array of commands with just the string, i.e. `['/route']`
-   *   - **null|undefined**: Disables the link by removing the `href`
-   * @see {@link Router#createUrlTree Router#createUrlTree}
-   */
-  @Input()
-  set routerLink(commands: any[]|string|null|undefined) {
-    if (commands != null) {
-      this.commands = Array.isArray(commands) ? commands : [commands];
-    } else {
-      this.commands = null;
-    }
-  }
-
-  /** @nodoc */
-  ngOnChanges(changes: SimpleChanges): any {
-    this.updateTargetUrlAndHref();
-    this.onChanges.next(this);
-  }
-  /** @nodoc */
-  ngOnDestroy(): any {
-    this.subscription.unsubscribe();
-  }
-
-  /** @nodoc */
-  @HostListener(
-      'click',
-      ['$event.button', '$event.ctrlKey', '$event.shiftKey', '$event.altKey', '$event.metaKey'])
-  onClick(button: number, ctrlKey: boolean, shiftKey: boolean, altKey: boolean, metaKey: boolean):
-      boolean {
-    if (button !== 0 || ctrlKey || shiftKey || altKey || metaKey) {
-      return true;
-    }
-
-    if (typeof this.target === 'string' && this.target != '_self' || this.urlTree === null) {
-      return true;
-    }
-
-    const extras = {
-      skipLocationChange: coerceToBoolean(this.skipLocationChange),
-      replaceUrl: coerceToBoolean(this.replaceUrl),
-      state: this.state
-    };
-    this.router.navigateByUrl(this.urlTree, extras);
-    return false;
-  }
-
-  private updateTargetUrlAndHref(): void {
-    this.href = this.urlTree !== null ?
-        this.locationStrategy.prepareExternalUrl(this.router.serializeUrl(this.urlTree)) :
-        null;
-  }
-
-  get urlTree(): UrlTree|null {
-    if (this.commands === null) {
-      return null;
-    }
-    return this.router.createUrlTree(this.commands, {
-      // If the `relativeTo` input is not defined, we want to use `this.route` by default.
-      // Otherwise, we should use the value provided by the user in the input.
-      relativeTo: this.relativeTo !== undefined ? this.relativeTo : this.route,
-      queryParams: this.queryParams,
-      fragment: this.fragment,
-      queryParamsHandling: this.queryParamsHandling,
-      preserveFragment: coerceToBoolean(this.preserveFragment),
-    });
-  }
-}
+export {RouterLink as RouterLinkWithHref};

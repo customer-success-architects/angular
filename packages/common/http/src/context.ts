@@ -3,11 +3,13 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
 /**
  * A token used to manipulate and access values stored in `HttpContext`.
+ *
+ * @see [Request and response metadata](guide/http/interceptors#request-and-response-metadata)
  *
  * @publicApi
  */
@@ -25,7 +27,7 @@ export class HttpContextToken<T> {
  *
  * ### Usage Example
  *
- * ```typescript
+ * ```ts
  * // inside cache.interceptors.ts
  * export const IS_CACHE_ENABLED = new HttpContextToken<boolean>(() => false);
  *
@@ -45,6 +47,8 @@ export class HttpContextToken<T> {
  *   context: new HttpContext().set(IS_CACHE_ENABLED, true)
  * }).subscribe(...);
  * ```
+ *
+ * @see [Request and response metadata](guide/http/interceptors#request-and-response-metadata)
  *
  * @publicApi
  */

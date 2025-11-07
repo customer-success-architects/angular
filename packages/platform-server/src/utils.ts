@@ -3,178 +3,351 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
-import {ApplicationRef, ImportedNgModuleProviders, importProvidersFrom, NgModuleFactory, NgModuleRef, PlatformRef, Provider, StaticProvider, Type, ɵinternalCreateApplication as internalCreateApplication, ɵisPromise} from '@angular/core';
-import {BrowserModule, ɵTRANSITION_ID} from '@angular/platform-browser';
-import {first} from 'rxjs/operators';
+import {
+  APP_ID,
+  ApplicationRef,
+  CSP_NONCE,
+  InjectionToken,
+  PlatformRef,
+  Provider,
+  Renderer2,
+  StaticProvider,
+  Type,
+  ɵannotateForHydration as annotateForHydration,
+  ɵIS_HYDRATION_DOM_REUSE_ENABLED as IS_HYDRATION_DOM_REUSE_ENABLED,
+  ɵSSR_CONTENT_INTEGRITY_MARKER as SSR_CONTENT_INTEGRITY_MARKER,
+  ɵstartMeasuring as startMeasuring,
+  ɵstopMeasuring as stopMeasuring,
+} from '@angular/core';
+import {BootstrapContext} from '@angular/platform-browser';
 
+import {platformServer} from './server';
 import {PlatformState} from './platform_state';
-import {platformDynamicServer, platformServer, ServerModule} from './server';
 import {BEFORE_APP_SERIALIZED, INITIAL_CONFIG} from './tokens';
-import {TRANSFER_STATE_SERIALIZATION_PROVIDERS} from './transfer_state';
+import {createScript} from './transfer_state';
+
+/**
+ * Event dispatch (JSAction) script is inlined into the HTML by the build
+ * process to avoid extra blocking request on a page. The script looks like this:
+ * ```html
+ * <script type="text/javascript" id="ng-event-dispatch-contract">...</script>
+ * ```
+ * This const represents the "id" attribute value.
+ */
+export const EVENT_DISPATCH_SCRIPT_ID = 'ng-event-dispatch-contract';
 
 interface PlatformOptions {
-  document?: string;
+  document?: string | Document;
   url?: string;
   platformProviders?: Provider[];
 }
 
-function _getPlatform(
-    platformFactory: (extraProviders: StaticProvider[]) => PlatformRef,
-    options: PlatformOptions): PlatformRef {
+/**
+ * Creates an instance of a server platform (with or without JIT compiler support
+ * depending on the `ngJitMode` global const value), using provided options.
+ */
+function createServerPlatform(options: PlatformOptions): PlatformRef {
   const extraProviders = options.platformProviders ?? [];
-  return platformFactory([
+  const measuringLabel = 'createServerPlatform';
+  startMeasuring(measuringLabel);
+
+  const platform = platformServer([
     {provide: INITIAL_CONFIG, useValue: {document: options.document, url: options.url}},
-    extraProviders
+    extraProviders,
   ]);
+
+  stopMeasuring(measuringLabel);
+  return platform;
 }
 
-function _render<T>(
-    platform: PlatformRef,
-    bootstrapPromise: Promise<NgModuleRef<T>|ApplicationRef>): Promise<string> {
-  return bootstrapPromise.then((moduleOrApplicationRef) => {
-    const environmentInjector = moduleOrApplicationRef.injector;
-    const transitionId = environmentInjector.get(ɵTRANSITION_ID, null);
-    if (!transitionId) {
-      throw new Error(
-          `renderModule[Factory]() requires the use of BrowserModule.withServerTransition() to ensure
-the server-rendered app can be properly bootstrapped into a client app.`);
+/**
+ * Finds and returns inlined event dispatch script if it exists.
+ * See the `EVENT_DISPATCH_SCRIPT_ID` const docs for additional info.
+ */
+function findEventDispatchScript(doc: Document) {
+  return doc.getElementById(EVENT_DISPATCH_SCRIPT_ID);
+}
+
+/**
+ * Removes inlined event dispatch script if it exists.
+ * See the `EVENT_DISPATCH_SCRIPT_ID` const docs for additional info.
+ */
+function removeEventDispatchScript(doc: Document) {
+  findEventDispatchScript(doc)?.remove();
+}
+
+/**
+ * Annotate nodes for hydration and remove event dispatch script when not needed.
+ */
+function prepareForHydration(platformState: PlatformState, applicationRef: ApplicationRef): void {
+  const measuringLabel = 'prepareForHydration';
+  startMeasuring(measuringLabel);
+  const environmentInjector = applicationRef.injector;
+  const doc = platformState.getDocument();
+
+  if (!environmentInjector.get(IS_HYDRATION_DOM_REUSE_ENABLED, false)) {
+    // Hydration is diabled, remove inlined event dispatch script.
+    // (which was injected by the build process) from the HTML.
+    removeEventDispatchScript(doc);
+
+    return;
+  }
+
+  appendSsrContentIntegrityMarker(doc);
+
+  const eventTypesToReplay = annotateForHydration(applicationRef, doc);
+  if (eventTypesToReplay.regular.size || eventTypesToReplay.capture.size) {
+    insertEventRecordScript(
+      environmentInjector.get(APP_ID),
+      doc,
+      eventTypesToReplay,
+      environmentInjector.get(CSP_NONCE, null),
+    );
+  } else {
+    // No events to replay, we should remove inlined event dispatch script
+    // (which was injected by the build process) from the HTML.
+    removeEventDispatchScript(doc);
+  }
+  stopMeasuring(measuringLabel);
+}
+
+/**
+ * Creates a marker comment node and append it into the `<body>`.
+ * Some CDNs have mechanisms to remove all comment node from HTML.
+ * This behaviour breaks hydration, so we'll detect on the client side if this
+ * marker comment is still available or else throw an error
+ */
+function appendSsrContentIntegrityMarker(doc: Document) {
+  // Adding a ng hydration marker comment
+  const comment = doc.createComment(SSR_CONTENT_INTEGRITY_MARKER);
+  doc.body.firstChild
+    ? doc.body.insertBefore(comment, doc.body.firstChild)
+    : doc.body.append(comment);
+}
+
+/**
+ * Adds the `ng-server-context` attribute to host elements of all bootstrapped components
+ * within a given application.
+ */
+function appendServerContextInfo(applicationRef: ApplicationRef) {
+  const injector = applicationRef.injector;
+  let serverContext = sanitizeServerContext(injector.get(SERVER_CONTEXT, DEFAULT_SERVER_CONTEXT));
+  applicationRef.components.forEach((componentRef) => {
+    const renderer = componentRef.injector.get(Renderer2);
+    const element = componentRef.location.nativeElement;
+    if (element) {
+      renderer.setAttribute(element, 'ng-server-context', serverContext);
     }
-    const applicationRef: ApplicationRef = moduleOrApplicationRef instanceof ApplicationRef ?
-        moduleOrApplicationRef :
-        environmentInjector.get(ApplicationRef);
-    return applicationRef.isStable.pipe((first((isStable: boolean) => isStable)))
-        .toPromise()
-        .then(() => {
-          const platformState = platform.injector.get(PlatformState);
+  });
+}
 
-          const asyncPromises: Promise<any>[] = [];
+function insertEventRecordScript(
+  appId: string,
+  doc: Document,
+  eventTypesToReplay: {regular: Set<string>; capture: Set<string>},
+  nonce: string | null,
+): void {
+  const measuringLabel = 'insertEventRecordScript';
+  startMeasuring(measuringLabel);
+  const {regular, capture} = eventTypesToReplay;
+  const eventDispatchScript = findEventDispatchScript(doc);
 
-          // Run any BEFORE_APP_SERIALIZED callbacks just before rendering to string.
-          const callbacks = environmentInjector.get(BEFORE_APP_SERIALIZED, null);
+  // Note: this is only true when build with the CLI tooling, which inserts the script in the HTML
+  if (eventDispatchScript) {
+    // This is defined in packages/core/primitives/event-dispatch/contract_binary.ts
+    const replayScriptContents =
+      `window.__jsaction_bootstrap(` +
+      `document.body,` +
+      `"${appId}",` +
+      `${JSON.stringify(Array.from(regular))},` +
+      `${JSON.stringify(Array.from(capture))}` +
+      `);`;
 
-          if (callbacks) {
-            for (const callback of callbacks) {
-              try {
-                const callbackResult = callback();
-                if (ɵisPromise(callbackResult)) {
-                  // TODO: in TS3.7, callbackResult is void.
-                  asyncPromises.push(callbackResult as any);
-                }
+    const replayScript = createScript(doc, replayScriptContents, nonce);
 
-              } catch (e) {
-                // Ignore exceptions.
-                console.warn('Ignoring BEFORE_APP_SERIALIZED Exception: ', e);
-              }
-            }
-          }
+    // Insert replay script right after inlined event dispatch script, since it
+    // relies on `__jsaction_bootstrap` to be defined in the global scope.
+    eventDispatchScript.after(replayScript);
+  }
+  stopMeasuring(measuringLabel);
+}
 
-          const complete = () => {
-            const output = platformState.renderToString();
-            platform.destroy();
-            return output;
-          };
+/**
+ * Renders an Angular application to a string.
+ *
+ * @private
+ *
+ * @param platformRef - Reference to the Angular platform.
+ * @param applicationRef - Reference to the Angular application.
+ * @returns A promise that resolves to the rendered string.
+ */
+export async function renderInternal(
+  platformRef: PlatformRef,
+  applicationRef: ApplicationRef,
+): Promise<string> {
+  const platformState = platformRef.injector.get(PlatformState);
+  prepareForHydration(platformState, applicationRef);
+  appendServerContextInfo(applicationRef);
 
-          if (asyncPromises.length === 0) {
-            return complete();
-          }
+  // Run any BEFORE_APP_SERIALIZED callbacks just before rendering to string.
+  const environmentInjector = applicationRef.injector;
+  const callbacks = environmentInjector.get(BEFORE_APP_SERIALIZED, null);
+  if (callbacks) {
+    const asyncCallbacks: Promise<void>[] = [];
+    for (const callback of callbacks) {
+      try {
+        const callbackResult = callback();
+        if (callbackResult) {
+          asyncCallbacks.push(callbackResult);
+        }
+      } catch (e) {
+        // Ignore exceptions.
+        console.warn('Ignoring BEFORE_APP_SERIALIZED Exception: ', e);
+      }
+    }
 
-          return Promise
-              .all(asyncPromises.map(asyncPromise => {
-                return asyncPromise.catch(e => {
-                  console.warn('Ignoring BEFORE_APP_SERIALIZED Exception: ', e);
-                });
-              }))
-              .then(complete);
-        });
+    if (asyncCallbacks.length) {
+      for (const result of await Promise.allSettled(asyncCallbacks)) {
+        if (result.status === 'rejected') {
+          console.warn('Ignoring BEFORE_APP_SERIALIZED Exception: ', result.reason);
+        }
+      }
+    }
+  }
+
+  return platformState.renderToString();
+}
+
+/**
+ * Destroy the application in a macrotask, this allows pending promises to be settled and errors
+ * to be surfaced to the users.
+ */
+function asyncDestroyPlatform(platformRef: PlatformRef): Promise<void> {
+  return new Promise<void>((resolve) => {
+    setTimeout(() => {
+      platformRef.destroy();
+      resolve();
+    }, 0);
   });
 }
 
 /**
- * Renders a Module to string.
+ * Specifies the value that should be used if no server context value has been provided.
+ */
+const DEFAULT_SERVER_CONTEXT = 'other';
+
+/**
+ * An internal token that allows providing extra information about the server context
+ * (e.g. whether SSR or SSG was used). The value is a string and characters other
+ * than [a-zA-Z0-9\-] are removed. See the default value in `DEFAULT_SERVER_CONTEXT` const.
+ */
+export const SERVER_CONTEXT = new InjectionToken<string>('SERVER_CONTEXT');
+
+/**
+ * Sanitizes provided server context:
+ * - removes all characters other than a-z, A-Z, 0-9 and `-`
+ * - returns `other` if nothing is provided or the string is empty after sanitization
+ */
+function sanitizeServerContext(serverContext: string): string {
+  const context = serverContext.replace(/[^a-zA-Z0-9\-]/g, '');
+  return context.length > 0 ? context : DEFAULT_SERVER_CONTEXT;
+}
+
+/**
+ * Bootstraps an application using provided NgModule and serializes the page content to string.
  *
- * `document` is the full document HTML of the page to render, as a string.
- * `url` is the URL for the current render request.
- * `extraProviders` are the platform level providers for the current render request.
+ * @param moduleType A reference to an NgModule that should be used for bootstrap.
+ * @param options Additional configuration for the render operation:
+ *  - `document` - the document of the page to render, either as an HTML string or
+ *                 as a reference to the `document` instance.
+ *  - `url` - the URL for the current render request.
+ *  - `extraProviders` - set of platform level providers for the current render request.
  *
  * @publicApi
  */
-export function renderModule<T>(
-    module: Type<T>, options: {document?: string, url?: string, extraProviders?: StaticProvider[]}):
-    Promise<string> {
+export async function renderModule<T>(
+  moduleType: Type<T>,
+  options: {document?: string | Document; url?: string; extraProviders?: StaticProvider[]},
+): Promise<string> {
   const {document, url, extraProviders: platformProviders} = options;
-  const platform = _getPlatform(platformDynamicServer, {document, url, platformProviders});
-  return _render(platform, platform.bootstrapModule(module));
+  const platformRef = createServerPlatform({document, url, platformProviders});
+  try {
+    const moduleRef = await platformRef.bootstrapModule(moduleType);
+    const applicationRef = moduleRef.injector.get(ApplicationRef);
+
+    const measuringLabel = 'whenStable';
+    startMeasuring(measuringLabel);
+    // Block until application is stable.
+    await applicationRef.whenStable();
+    stopMeasuring(measuringLabel);
+
+    return await renderInternal(platformRef, applicationRef);
+  } finally {
+    await asyncDestroyPlatform(platformRef);
+  }
 }
 
 /**
  * Bootstraps an instance of an Angular application and renders it to a string.
  *
- * Note: the root component passed into this function *must* be a standalone one (should have the
- * `standalone: true` flag in the `@Component` decorator config).
+ * @usageNotes
  *
- * ```typescript
- * @Component({
- *   standalone: true,
- *   template: 'Hello world!'
- * })
- * class RootComponent {}
+ * ```ts
+ * import { BootstrapContext, bootstrapApplication } from '@angular/platform-browser';
+ * import { renderApplication } from '@angular/platform-server';
+ * import { ApplicationConfig } from '@angular/core';
+ * import { AppComponent } from './app.component';
  *
- * const output: string = await renderApplication(RootComponent, {appId: 'server-app'});
+ * const appConfig: ApplicationConfig = { providers: [...] };
+ * const bootstrap = (context: BootstrapContext) =>
+ *   bootstrapApplication(AppComponent, config, context);
+ * const output = await renderApplication(bootstrap);
  * ```
  *
- * @param rootComponent A reference to a Standalone Component that should be rendered.
+ * @param bootstrap A method that when invoked returns a promise that returns an `ApplicationRef`
+ *     instance once resolved. The method is invoked with an `Injector` instance that
+ *     provides access to the platform-level dependency injection context.
  * @param options Additional configuration for the render operation:
- *  - `appId` - a string identifier of this application. The appId is used to prefix all
- *              server-generated stylings and state keys of the application in TransferState
- *              use-cases.
- *  - `document` - the full document HTML of the page to render, as a string.
+ *  - `document` - the document of the page to render, either as an HTML string or
+ *                 as a reference to the `document` instance.
  *  - `url` - the URL for the current render request.
- *  - `providers` - set of application level providers for the current render request.
  *  - `platformProviders` - the platform level providers for the current render request.
+ *
  * @returns A Promise, that returns serialized (to a string) rendered page, once resolved.
  *
  * @publicApi
- * @developerPreview
  */
-export function renderApplication<T>(rootComponent: Type<T>, options: {
-  appId: string,
-  document?: string,
-  url?: string,
-  providers?: Array<Provider|ImportedNgModuleProviders>,
-  platformProviders?: Provider[],
-}): Promise<string> {
-  const {document, url, platformProviders, appId} = options;
-  const platform = _getPlatform(platformDynamicServer, {document, url, platformProviders});
-  const appProviders = [
-    importProvidersFrom(BrowserModule.withServerTransition({appId})),
-    importProvidersFrom(ServerModule),
-    ...TRANSFER_STATE_SERIALIZATION_PROVIDERS,
-    ...(options.providers ?? []),
-  ];
-  return _render(platform, internalCreateApplication({rootComponent, appProviders}));
-}
+export async function renderApplication(
+  bootstrap: (context: BootstrapContext) => Promise<ApplicationRef>,
+  options: {document?: string | Document; url?: string; platformProviders?: Provider[]},
+): Promise<string> {
+  const renderAppLabel = 'renderApplication';
+  const bootstrapLabel = 'bootstrap';
+  const _renderLabel = '_render';
 
-/**
- * Renders a {@link NgModuleFactory} to string.
- *
- * `document` is the full document HTML of the page to render, as a string.
- * `url` is the URL for the current render request.
- * `extraProviders` are the platform level providers for the current render request.
- *
- * @publicApi
- *
- * @deprecated
- * This symbol is no longer necessary as of Angular v13.
- * Use {@link renderModule} API instead.
- */
-export function renderModuleFactory<T>(
-    moduleFactory: NgModuleFactory<T>,
-    options: {document?: string, url?: string, extraProviders?: StaticProvider[]}):
-    Promise<string> {
-  const {document, url, extraProviders: platformProviders} = options;
-  const platform = _getPlatform(platformServer, {document, url, platformProviders});
-  return _render(platform, platform.bootstrapModuleFactory(moduleFactory));
+  startMeasuring(renderAppLabel);
+  const platformRef = createServerPlatform(options);
+  try {
+    startMeasuring(bootstrapLabel);
+    const applicationRef = await bootstrap({platformRef});
+    stopMeasuring(bootstrapLabel);
+
+    startMeasuring(_renderLabel);
+
+    const measuringLabel = 'whenStable';
+    startMeasuring(measuringLabel);
+    // Block until application is stable.
+    await applicationRef.whenStable();
+    stopMeasuring(measuringLabel);
+
+    const rendered = await renderInternal(platformRef, applicationRef);
+    stopMeasuring(_renderLabel);
+    return rendered;
+  } finally {
+    await asyncDestroyPlatform(platformRef);
+    stopMeasuring(renderAppLabel);
+  }
 }

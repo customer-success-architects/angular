@@ -3,18 +3,24 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
 import {ɵRuntimeError as RuntimeError} from '@angular/core';
 
 import {RuntimeErrorCode} from './errors';
-import {ActivatedRoute, ActivatedRouteSnapshot} from './router_state';
+import {ActivatedRouteSnapshot} from './router_state';
 import {Params, PRIMARY_OUTLET} from './shared';
-import {createRoot, squashSegmentGroup, UrlSegment, UrlSegmentGroup, UrlTree} from './url_tree';
-import {forEach, last, shallowEqual} from './utils/collection';
-
-const NG_DEV_MODE = typeof ngDevMode === 'undefined' || ngDevMode;
+import {
+  createRoot,
+  DefaultUrlSerializer,
+  squashSegmentGroup,
+  UrlSegment,
+  UrlSegmentGroup,
+  UrlSerializer,
+  UrlTree,
+} from './url_tree';
+import {last, shallowEqual} from './utils/collection';
 
 /**
  * Creates a `UrlTree` relative to an `ActivatedRouteSnapshot`.
@@ -30,10 +36,13 @@ const NG_DEV_MODE = typeof ngDevMode === 'undefined' || ngDevMode;
  * @param queryParams The query parameters for the `UrlTree`. `null` if the `UrlTree` does not have
  *     any query parameters.
  * @param fragment The fragment for the `UrlTree`. `null` if the `UrlTree` does not have a fragment.
+ * @param urlSerializer The `UrlSerializer` to use for handling query parameter normalization.
+ * You should provide your application's custom `UrlSerializer` if one is configured to parse and
+ * serialize query parameter values to and from objects other than strings/string arrays.
  *
  * @usageNotes
  *
- * ```
+ * ```ts
  * // create /team/33/user/11
  * createUrlTreeFromSnapshot(snapshot, ['/team', 33, 'user', 11]);
  *
@@ -68,16 +77,28 @@ const NG_DEV_MODE = typeof ngDevMode === 'undefined' || ngDevMode;
  * ```
  */
 export function createUrlTreeFromSnapshot(
-    relativeTo: ActivatedRouteSnapshot, commands: any[], queryParams: Params|null = null,
-    fragment: string|null = null): UrlTree {
+  relativeTo: ActivatedRouteSnapshot,
+  commands: readonly any[],
+  queryParams: Params | null = null,
+  fragment: string | null = null,
+  urlSerializer = new DefaultUrlSerializer(),
+): UrlTree {
   const relativeToUrlSegmentGroup = createSegmentGroupFromRoute(relativeTo);
-  return createUrlTreeFromSegmentGroup(relativeToUrlSegmentGroup, commands, queryParams, fragment);
+  return createUrlTreeFromSegmentGroup(
+    relativeToUrlSegmentGroup,
+    commands,
+    queryParams,
+    fragment,
+    urlSerializer,
+  );
 }
 
-function createSegmentGroupFromRoute(route: ActivatedRouteSnapshot): UrlSegmentGroup {
-  let targetGroup: UrlSegmentGroup|undefined;
+export function createSegmentGroupFromRoute(route: ActivatedRouteSnapshot): UrlSegmentGroup {
+  let targetGroup: UrlSegmentGroup | undefined;
 
-  function createSegmentGroupFromRouteRecursive(currentRoute: ActivatedRouteSnapshot) {
+  function createSegmentGroupFromRouteRecursive(
+    currentRoute: ActivatedRouteSnapshot,
+  ): UrlSegmentGroup {
     const childOutlets: {[outlet: string]: UrlSegmentGroup} = {};
     for (const childSnapshot of currentRoute.children) {
       const root = createSegmentGroupFromRouteRecursive(childSnapshot);
@@ -96,8 +117,12 @@ function createSegmentGroupFromRoute(route: ActivatedRouteSnapshot): UrlSegmentG
 }
 
 export function createUrlTreeFromSegmentGroup(
-    relativeTo: UrlSegmentGroup, commands: any[], queryParams: Params|null,
-    fragment: string|null): UrlTree {
+  relativeTo: UrlSegmentGroup,
+  commands: readonly any[],
+  queryParams: Params | null,
+  fragment: string | null,
+  urlSerializer: UrlSerializer,
+): UrlTree {
   let root = relativeTo;
   while (root.parent) {
     root = root.parent;
@@ -106,63 +131,20 @@ export function createUrlTreeFromSegmentGroup(
   // `UrlSegmentGroup`. All we need to do is update the `queryParams` and `fragment` without
   // applying any other logic.
   if (commands.length === 0) {
-    return tree(root, root, root, queryParams, fragment);
+    return tree(root, root, root, queryParams, fragment, urlSerializer);
   }
 
   const nav = computeNavigation(commands);
 
   if (nav.toRoot()) {
-    return tree(root, root, new UrlSegmentGroup([], {}), queryParams, fragment);
+    return tree(root, root, new UrlSegmentGroup([], {}), queryParams, fragment, urlSerializer);
   }
 
   const position = findStartingPositionForTargetGroup(nav, root, relativeTo);
-  const newSegmentGroup = position.processChildren ?
-      updateSegmentGroupChildren(position.segmentGroup, position.index, nav.commands) :
-      updateSegmentGroup(position.segmentGroup, position.index, nav.commands);
-  return tree(root, position.segmentGroup, newSegmentGroup, queryParams, fragment);
-}
-
-export function createUrlTree(
-    route: ActivatedRoute, urlTree: UrlTree, commands: any[], queryParams: Params|null,
-    fragment: string|null): UrlTree {
-  if (commands.length === 0) {
-    return tree(urlTree.root, urlTree.root, urlTree.root, queryParams, fragment);
-  }
-
-  const nav = computeNavigation(commands);
-
-  if (nav.toRoot()) {
-    return tree(urlTree.root, urlTree.root, new UrlSegmentGroup([], {}), queryParams, fragment);
-  }
-
-  function createTreeUsingPathIndex(lastPathIndex: number) {
-    const startingPosition =
-        findStartingPosition(nav, urlTree, route.snapshot?._urlSegment, lastPathIndex);
-
-    const segmentGroup = startingPosition.processChildren ?
-        updateSegmentGroupChildren(
-            startingPosition.segmentGroup, startingPosition.index, nav.commands) :
-        updateSegmentGroup(startingPosition.segmentGroup, startingPosition.index, nav.commands);
-    return tree(urlTree.root, startingPosition.segmentGroup, segmentGroup, queryParams, fragment);
-  }
-  // Note: The types should disallow `snapshot` from being `undefined` but due to test mocks, this
-  // may be the case. Since we try to access it at an earlier point before the refactor to add the
-  // warning for `relativeLinkResolution: 'legacy'`, this may cause failures in tests where it
-  // didn't before.
-  const result = createTreeUsingPathIndex(route.snapshot?._lastPathIndex);
-
-  // Check if application is relying on `relativeLinkResolution: 'legacy'`
-  if (typeof ngDevMode === 'undefined' || !!ngDevMode) {
-    const correctedResult = createTreeUsingPathIndex(route.snapshot?._correctedLastPathIndex);
-    if (correctedResult.toString() !== result.toString()) {
-      console.warn(
-          `relativeLinkResolution: 'legacy' is deprecated and will be removed in a future version of Angular. The link to ${
-              result.toString()} will change to ${
-              correctedResult.toString()} if the code is not updated before then.`);
-    }
-  }
-
-  return result;
+  const newSegmentGroup = position.processChildren
+    ? updateSegmentGroupChildren(position.segmentGroup, position.index, nav.commands)
+    : updateSegmentGroup(position.segmentGroup, position.index, nav.commands);
+  return tree(root, position.segmentGroup, newSegmentGroup, queryParams, fragment, urlSerializer);
 }
 
 function isMatrixParams(command: any): boolean {
@@ -177,14 +159,47 @@ function isCommandWithOutlets(command: any): command is {outlets: {[key: string]
   return typeof command === 'object' && command != null && command.outlets;
 }
 
+/**
+ * Normalizes a query parameter value by using the `UrlSerializer` to serialize then parse the value.
+ *
+ * This ensures that the value is consistent between parsing a URL in the browser on a fresh page load (or page refresh)
+ * and a navigation where the query parameter value is passed directly to the router.
+ *
+ * This also allows custom `UrlSerializer` implementations to define how query parameter values are represented
+ * in a `UrlTree`. Since `UrlSerializer` already has a `parse` that takes a string, it already has control
+ * over how a browser URL is parsed into a `UrlTree` on initial load/page refresh.
+ */
+function normalizeQueryParams(k: string, v: unknown, urlSerializer: UrlSerializer): unknown {
+  // Hack for empty string query param, which, for whatever reason, happens
+  // in a test. Parsing drops empty key params (which might not really be necessary).
+  // It's probably really a test issue but I don't have the time to fix it...
+  k ||= 'ɵ';
+  const tree = new UrlTree();
+  tree.queryParams = {[k]: v};
+  return urlSerializer.parse(urlSerializer.serialize(tree)).queryParams[k];
+}
+
 function tree(
-    oldRoot: UrlSegmentGroup, oldSegmentGroup: UrlSegmentGroup, newSegmentGroup: UrlSegmentGroup,
-    queryParams: Params|null, fragment: string|null): UrlTree {
-  let qp: any = {};
-  if (queryParams) {
-    forEach(queryParams, (value: any, name: any) => {
-      qp[name] = Array.isArray(value) ? value.map((v: any) => `${v}`) : `${value}`;
-    });
+  oldRoot: UrlSegmentGroup,
+  oldSegmentGroup: UrlSegmentGroup,
+  newSegmentGroup: UrlSegmentGroup,
+  queryParams: Params | null,
+  fragment: string | null,
+  urlSerializer: UrlSerializer,
+): UrlTree {
+  const qp: Params = {};
+  for (const [key, value] of Object.entries(queryParams ?? {})) {
+    // This retains old behavior where each item in the array was stringified individually This
+    // helps remove special-case handling for empty and single-item arrays where the default
+    // serializer removes empty arrays when serialized then parsed or converts them to non-arrays
+    // for single-item arrays. Changing this could have breaking change implications. Prior code
+    // always returned arrays of strings for array inputs so tests, applications, serializers,
+    // etc. may only be set up to handle string arrays. We could consider changing this in the
+    // future to serialize the entire array as a single value. For now, this feels safer and is
+    // at least a step in the right direction.
+    qp[key] = Array.isArray(value)
+      ? value.map((v) => normalizeQueryParams(key, v, urlSerializer))
+      : normalizeQueryParams(key, value, urlSerializer);
   }
 
   let rootCandidate: UrlSegmentGroup;
@@ -206,10 +221,12 @@ function tree(
  * value.
  */
 function replaceSegment(
-    current: UrlSegmentGroup, oldSegment: UrlSegmentGroup,
-    newSegment: UrlSegmentGroup): UrlSegmentGroup {
+  current: UrlSegmentGroup,
+  oldSegment: UrlSegmentGroup,
+  newSegment: UrlSegmentGroup,
+): UrlSegmentGroup {
   const children: {[key: string]: UrlSegmentGroup} = {};
-  forEach(current.children, (c: UrlSegmentGroup, outletName: string) => {
+  Object.entries(current.children).forEach(([outletName, c]) => {
     if (c === oldSegment) {
       children[outletName] = newSegment;
     } else {
@@ -221,18 +238,25 @@ function replaceSegment(
 
 class Navigation {
   constructor(
-      public isAbsolute: boolean, public numberOfDoubleDots: number, public commands: any[]) {
+    public isAbsolute: boolean,
+    public numberOfDoubleDots: number,
+    public commands: readonly any[],
+  ) {
     if (isAbsolute && commands.length > 0 && isMatrixParams(commands[0])) {
       throw new RuntimeError(
-          RuntimeErrorCode.ROOT_SEGMENT_MATRIX_PARAMS,
-          NG_DEV_MODE && 'Root segment cannot have matrix parameters');
+        RuntimeErrorCode.ROOT_SEGMENT_MATRIX_PARAMS,
+        (typeof ngDevMode === 'undefined' || ngDevMode) &&
+          'Root segment cannot have matrix parameters',
+      );
     }
 
     const cmdWithOutlet = commands.find(isCommandWithOutlets);
     if (cmdWithOutlet && cmdWithOutlet !== last(commands)) {
       throw new RuntimeError(
-          RuntimeErrorCode.MISPLACED_OUTLETS_COMMAND,
-          NG_DEV_MODE && '{outlets:{}} has to be the last command');
+        RuntimeErrorCode.MISPLACED_OUTLETS_COMMAND,
+        (typeof ngDevMode === 'undefined' || ngDevMode) &&
+          '{outlets:{}} has to be the last command',
+      );
     }
   }
 
@@ -242,8 +266,8 @@ class Navigation {
 }
 
 /** Transforms commands to a normalized `Navigation` */
-function computeNavigation(commands: any[]): Navigation {
-  if ((typeof commands[0] === 'string') && commands.length === 1 && commands[0] === '/') {
+function computeNavigation(commands: readonly any[]): Navigation {
+  if (typeof commands[0] === 'string' && commands.length === 1 && commands[0] === '/') {
     return new Navigation(true, 0, commands);
   }
 
@@ -254,7 +278,7 @@ function computeNavigation(commands: any[]): Navigation {
     if (typeof cmd === 'object' && cmd != null) {
       if (cmd.outlets) {
         const outlets: {[k: string]: any} = {};
-        forEach(cmd.outlets, (commands: any, name: string) => {
+        Object.entries(cmd.outlets).forEach(([name, commands]) => {
           outlets[name] = typeof commands === 'string' ? commands.split('/') : commands;
         });
         return [...res, {outlets}];
@@ -273,9 +297,11 @@ function computeNavigation(commands: any[]): Navigation {
       cmd.split('/').forEach((urlPart, partIndex) => {
         if (partIndex == 0 && urlPart === '.') {
           // skip './a'
-        } else if (partIndex == 0 && urlPart === '') {  //  '/a'
+        } else if (partIndex == 0 && urlPart === '') {
+          //  '/a'
           isAbsolute = true;
-        } else if (urlPart === '..') {  //  '../a'
+        } else if (urlPart === '..') {
+          //  '../a'
           numberOfDoubleDots++;
         } else if (urlPart != '') {
           res.push(urlPart);
@@ -293,12 +319,17 @@ function computeNavigation(commands: any[]): Navigation {
 
 class Position {
   constructor(
-      public segmentGroup: UrlSegmentGroup, public processChildren: boolean, public index: number) {
-  }
+    public segmentGroup: UrlSegmentGroup,
+    public processChildren: boolean,
+    public index: number,
+  ) {}
 }
 
 function findStartingPositionForTargetGroup(
-    nav: Navigation, root: UrlSegmentGroup, target: UrlSegmentGroup): Position {
+  nav: Navigation,
+  root: UrlSegmentGroup,
+  target: UrlSegmentGroup,
+): Position {
   if (nav.isAbsolute) {
     return new Position(root, true, 0);
   }
@@ -319,28 +350,11 @@ function findStartingPositionForTargetGroup(
   return createPositionApplyingDoubleDots(target, index, nav.numberOfDoubleDots);
 }
 
-function findStartingPosition(
-    nav: Navigation, tree: UrlTree, segmentGroup: UrlSegmentGroup,
-    lastPathIndex: number): Position {
-  if (nav.isAbsolute) {
-    return new Position(tree.root, true, 0);
-  }
-
-  if (lastPathIndex === -1) {
-    // Pathless ActivatedRoute has _lastPathIndex === -1 but should not process children
-    // see issue #26224, #13011, #35687
-    // However, if the ActivatedRoute is the root we should process children like above.
-    const processChildren = segmentGroup === tree.root;
-    return new Position(segmentGroup, processChildren, 0);
-  }
-
-  const modifier = isMatrixParams(nav.commands[0]) ? 0 : 1;
-  const index = lastPathIndex + modifier;
-  return createPositionApplyingDoubleDots(segmentGroup, index, nav.numberOfDoubleDots);
-}
-
 function createPositionApplyingDoubleDots(
-    group: UrlSegmentGroup, index: number, numberOfDoubleDots: number): Position {
+  group: UrlSegmentGroup,
+  index: number,
+  numberOfDoubleDots: number,
+): Position {
   let g = group;
   let ci = index;
   let dd = numberOfDoubleDots;
@@ -349,14 +363,16 @@ function createPositionApplyingDoubleDots(
     g = g.parent!;
     if (!g) {
       throw new RuntimeError(
-          RuntimeErrorCode.INVALID_DOUBLE_DOTS, NG_DEV_MODE && 'Invalid number of \'../\'');
+        RuntimeErrorCode.INVALID_DOUBLE_DOTS,
+        (typeof ngDevMode === 'undefined' || ngDevMode) && "Invalid number of '../'",
+      );
     }
     ci = g.segments.length;
   }
   return new Position(g, false, ci - dd);
 }
 
-function getOutlets(commands: unknown[]): {[k: string]: unknown[]|string} {
+function getOutlets(commands: readonly unknown[]): {[k: string]: readonly unknown[] | string} {
   if (isCommandWithOutlets(commands[0])) {
     return commands[0].outlets;
   }
@@ -365,10 +381,11 @@ function getOutlets(commands: unknown[]): {[k: string]: unknown[]|string} {
 }
 
 function updateSegmentGroup(
-    segmentGroup: UrlSegmentGroup, startIndex: number, commands: any[]): UrlSegmentGroup {
-  if (!segmentGroup) {
-    segmentGroup = new UrlSegmentGroup([], {});
-  }
+  segmentGroup: UrlSegmentGroup | undefined,
+  startIndex: number,
+  commands: readonly any[],
+): UrlSegmentGroup {
+  segmentGroup ??= new UrlSegmentGroup([], {});
   if (segmentGroup.segments.length === 0 && segmentGroup.hasChildren()) {
     return updateSegmentGroupChildren(segmentGroup, startIndex, commands);
   }
@@ -377,8 +394,10 @@ function updateSegmentGroup(
   const slicedCommands = commands.slice(m.commandIndex);
   if (m.match && m.pathIndex < segmentGroup.segments.length) {
     const g = new UrlSegmentGroup(segmentGroup.segments.slice(0, m.pathIndex), {});
-    g.children[PRIMARY_OUTLET] =
-        new UrlSegmentGroup(segmentGroup.segments.slice(m.pathIndex), segmentGroup.children);
+    g.children[PRIMARY_OUTLET] = new UrlSegmentGroup(
+      segmentGroup.segments.slice(m.pathIndex),
+      segmentGroup.children,
+    );
     return updateSegmentGroupChildren(g, 0, slicedCommands);
   } else if (m.match && slicedCommands.length === 0) {
     return new UrlSegmentGroup(segmentGroup.segments, {});
@@ -392,14 +411,51 @@ function updateSegmentGroup(
 }
 
 function updateSegmentGroupChildren(
-    segmentGroup: UrlSegmentGroup, startIndex: number, commands: any[]): UrlSegmentGroup {
+  segmentGroup: UrlSegmentGroup,
+  startIndex: number,
+  commands: readonly any[],
+): UrlSegmentGroup {
   if (commands.length === 0) {
     return new UrlSegmentGroup(segmentGroup.segments, {});
   } else {
     const outlets = getOutlets(commands);
     const children: {[key: string]: UrlSegmentGroup} = {};
+    // If the set of commands applies to anything other than the primary outlet and the child
+    // segment is an empty path primary segment on its own, we want to apply the commands to the
+    // empty child path rather than here. The outcome is that the empty primary child is effectively
+    // removed from the final output UrlTree. Imagine the following config:
+    //
+    // {path: '', children: [{path: '**', outlet: 'popup'}]}.
+    //
+    // Navigation to /(popup:a) will activate the child outlet correctly Given a follow-up
+    // navigation with commands
+    // ['/', {outlets: {'popup': 'b'}}], we _would not_ want to apply the outlet commands to the
+    // root segment because that would result in
+    // //(popup:a)(popup:b) since the outlet command got applied one level above where it appears in
+    // the `ActivatedRoute` rather than updating the existing one.
+    //
+    // Because empty paths do not appear in the URL segments and the fact that the segments used in
+    // the output `UrlTree` are squashed to eliminate these empty paths where possible
+    // https://github.com/angular/angular/blob/13f10de40e25c6900ca55bd83b36bd533dacfa9e/packages/router/src/url_tree.ts#L755
+    // it can be hard to determine what is the right thing to do when applying commands to a
+    // `UrlSegmentGroup` that is created from an "unsquashed"/expanded `ActivatedRoute` tree.
+    // This code effectively "squashes" empty path primary routes when they have no siblings on
+    // the same level of the tree.
+    if (
+      Object.keys(outlets).some((o) => o !== PRIMARY_OUTLET) &&
+      segmentGroup.children[PRIMARY_OUTLET] &&
+      segmentGroup.numberOfChildren === 1 &&
+      segmentGroup.children[PRIMARY_OUTLET].segments.length === 0
+    ) {
+      const childrenOfEmptyChild = updateSegmentGroupChildren(
+        segmentGroup.children[PRIMARY_OUTLET],
+        startIndex,
+        commands,
+      );
+      return new UrlSegmentGroup(segmentGroup.segments, childrenOfEmptyChild.children);
+    }
 
-    forEach(outlets, (commands, outlet) => {
+    Object.entries(outlets).forEach(([outlet, commands]) => {
       if (typeof commands === 'string') {
         commands = [commands];
       }
@@ -408,7 +464,7 @@ function updateSegmentGroupChildren(
       }
     });
 
-    forEach(segmentGroup.children, (child: UrlSegmentGroup, childOutlet: string) => {
+    Object.entries(segmentGroup.children).forEach(([childOutlet, child]) => {
       if (outlets[childOutlet] === undefined) {
         children[childOutlet] = child;
       }
@@ -417,7 +473,7 @@ function updateSegmentGroupChildren(
   }
 }
 
-function prefixedWith(segmentGroup: UrlSegmentGroup, startIndex: number, commands: any[]) {
+function prefixedWith(segmentGroup: UrlSegmentGroup, startIndex: number, commands: readonly any[]) {
   let currentCommandIndex = 0;
   let currentPathIndex = startIndex;
 
@@ -434,11 +490,11 @@ function prefixedWith(segmentGroup: UrlSegmentGroup, startIndex: number, command
     }
     const curr = `${command}`;
     const next =
-        currentCommandIndex < commands.length - 1 ? commands[currentCommandIndex + 1] : null;
+      currentCommandIndex < commands.length - 1 ? commands[currentCommandIndex + 1] : null;
 
     if (currentPathIndex > 0 && curr === undefined) break;
 
-    if (curr && next && (typeof next === 'object') && next.outlets === undefined) {
+    if (curr && next && typeof next === 'object' && next.outlets === undefined) {
       if (!compare(curr, next, path)) return noMatch;
       currentCommandIndex += 2;
     } else {
@@ -452,7 +508,10 @@ function prefixedWith(segmentGroup: UrlSegmentGroup, startIndex: number, command
 }
 
 function createNewSegmentGroup(
-    segmentGroup: UrlSegmentGroup, startIndex: number, commands: any[]): UrlSegmentGroup {
+  segmentGroup: UrlSegmentGroup,
+  startIndex: number,
+  commands: readonly any[],
+): UrlSegmentGroup {
   const paths = segmentGroup.segments.slice(0, startIndex);
 
   let i = 0;
@@ -472,7 +531,7 @@ function createNewSegmentGroup(
     }
 
     const curr = isCommandWithOutlets(command) ? command.outlets[PRIMARY_OUTLET] : `${command}`;
-    const next = (i < commands.length - 1) ? commands[i + 1] : null;
+    const next = i < commands.length - 1 ? commands[i + 1] : null;
     if (curr && next && isMatrixParams(next)) {
       paths.push(new UrlSegment(curr, stringify(next)));
       i += 2;
@@ -484,10 +543,11 @@ function createNewSegmentGroup(
   return new UrlSegmentGroup(paths, {});
 }
 
-function createNewSegmentChildren(outlets: {[name: string]: unknown[]|string}):
-    {[outlet: string]: UrlSegmentGroup} {
+function createNewSegmentChildren(outlets: {[name: string]: readonly unknown[] | string}): {
+  [outlet: string]: UrlSegmentGroup;
+} {
   const children: {[outlet: string]: UrlSegmentGroup} = {};
-  forEach(outlets, (commands, outlet) => {
+  Object.entries(outlets).forEach(([outlet, commands]) => {
     if (typeof commands === 'string') {
       commands = [commands];
     }
@@ -500,7 +560,7 @@ function createNewSegmentChildren(outlets: {[name: string]: unknown[]|string}):
 
 function stringify(params: {[key: string]: any}): {[key: string]: string} {
   const res: {[key: string]: string} = {};
-  forEach(params, (v: any, k: string) => res[k] = `${v}`);
+  Object.entries(params).forEach(([k, v]) => (res[k] = `${v}`));
   return res;
 }
 

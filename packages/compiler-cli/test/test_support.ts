@@ -3,7 +3,7 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 /// <reference types="node" />
 import * as fs from 'fs';
@@ -12,10 +12,10 @@ import ts from 'typescript';
 
 import * as ng from '../index';
 import {NodeJSFileSystem, setFileSystem} from '../src/ngtsc/file_system';
-import {getAngularPackagesFromRunfiles, resolveNpmTreeArtifact} from '../src/ngtsc/testing';
+import {getAngularPackagesFromRunfiles, resolveFromRunfiles} from '../src/ngtsc/testing';
 
 // TEST_TMPDIR is always set by Bazel.
-const tmpdir = process.env.TEST_TMPDIR!;
+const tmpdir = process.env['TEST_TMPDIR']!;
 
 export function makeTempDir(): string {
   let dir: string;
@@ -40,7 +40,7 @@ export interface TestSupport {
 function createTestSupportFor(basePath: string) {
   // Typescript uses identity comparison on `paths` and other arrays in order to determine
   // if program structure can be reused for incremental compilation, so we reuse the default
-  // values unless overriden, and freeze them so that they can't be accidentaly changed somewhere
+  // values unless overridden, and freeze them so that they can't be accidentally changed somewhere
   // in tests.
   const defaultCompilerOptions = {
     basePath,
@@ -48,7 +48,7 @@ function createTestSupportFor(basePath: string) {
     'skipLibCheck': true,
     'strict': true,
     'strictPropertyInitialization': false,
-    'types': Object.freeze<string>([]) as string[],
+    'types': Object.freeze([] as string[]) as string[],
     'outDir': path.resolve(basePath, 'built'),
     'rootDir': basePath,
     'baseUrl': basePath,
@@ -56,15 +56,14 @@ function createTestSupportFor(basePath: string) {
     'target': ts.ScriptTarget.ES5,
     'newLine': ts.NewLineKind.LineFeed,
     'module': ts.ModuleKind.ES2015,
-    'moduleResolution': ts.ModuleResolutionKind.NodeJs,
+    'moduleResolution': ts.ModuleResolutionKind.Node10,
     'lib': Object.freeze([
       path.resolve(basePath, 'node_modules/typescript/lib/lib.es6.d.ts'),
     ]) as string[],
-    // clang-format off
-    'paths': Object.freeze({'@angular/*': ['./node_modules/@angular/*']}) as {[index: string]: string[]}
-    // clang-format on
+    'paths': Object.freeze({'@angular/*': ['./node_modules/@angular/*']}) as {
+      [index: string]: string[];
+    },
   };
-
 
   return {
     // We normalize the basePath into a posix path, so that multiple assertions which compare
@@ -74,7 +73,7 @@ function createTestSupportFor(basePath: string) {
     writeFiles,
     createCompilerOptions,
     shouldExist,
-    shouldNotExist
+    shouldNotExist,
   };
 
   function ensureDirExists(absolutePathToDir: string) {
@@ -132,14 +131,14 @@ export function setupBazelTo(tmpDirPath: string) {
   });
 
   // Link typescript
-  const typeScriptSource = resolveNpmTreeArtifact('npm/node_modules/typescript');
+  const typeScriptSource = resolveFromRunfiles('_main/node_modules/typescript');
   const typescriptDest = path.join(nodeModulesPath, 'typescript');
   fs.symlinkSync(typeScriptSource, typescriptDest, 'junction');
 
   // Link "rxjs" if it has been set up as a runfile. "rxjs" is linked optionally because
   // not all compiler-cli tests need "rxjs" set up.
   try {
-    const rxjsSource = resolveNpmTreeArtifact('rxjs', 'index.js');
+    const rxjsSource = resolveFromRunfiles('_main/node_modules/rxjs');
     const rxjsDest = path.join(nodeModulesPath, 'rxjs');
     fs.symlinkSync(rxjsSource, rxjsDest, 'junction');
   } catch (e: any) {
@@ -157,7 +156,7 @@ export function setup(): TestSupport {
 }
 
 export function expectNoDiagnostics(options: ng.CompilerOptions, diags: readonly ts.Diagnostic[]) {
-  const errorDiags = diags.filter(d => d.category !== ts.DiagnosticCategory.Message);
+  const errorDiags = diags.filter((d) => d.category !== ts.DiagnosticCategory.Message);
   if (errorDiags.length) {
     throw new Error(`Expected no diagnostics: ${ng.formatDiagnostics(errorDiags)}`);
   }
@@ -165,8 +164,9 @@ export function expectNoDiagnostics(options: ng.CompilerOptions, diags: readonly
 
 export function expectNoDiagnosticsInProgram(options: ng.CompilerOptions, p: ng.Program) {
   expectNoDiagnostics(options, [
-    ...p.getNgStructuralDiagnostics(), ...p.getTsSemanticDiagnostics(),
-    ...p.getNgSemanticDiagnostics()
+    ...p.getNgStructuralDiagnostics(),
+    ...p.getTsSemanticDiagnostics(),
+    ...p.getNgSemanticDiagnostics(),
   ]);
 }
 

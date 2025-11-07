@@ -3,11 +3,14 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
-import {AnimateTimings, AnimationMetadataType, AnimationOptions, ɵStyleDataMap} from '@angular/animations';
-
-const EMPTY_ANIMATION_OPTIONS: AnimationOptions = {};
+import {
+  AnimateTimings,
+  AnimationMetadataType,
+  AnimationOptions,
+  ɵStyleDataMap,
+} from '../../../src/animations';
 
 export interface AstVisitor {
   visitTrigger(ast: TriggerAst, context: any): any;
@@ -27,7 +30,7 @@ export interface AstVisitor {
 
 export interface Ast<T extends AnimationMetadataType> {
   type: T;
-  options: AnimationOptions|null;
+  options: AnimationOptions | null;
 }
 
 export interface TriggerAst extends Ast<AnimationMetadataType.Trigger> {
@@ -46,8 +49,9 @@ export interface StateAst extends Ast<AnimationMetadataType.State> {
 }
 
 export interface TransitionAst extends Ast<AnimationMetadataType.Transition> {
-  matchers: Array<(
-      (fromState: string, toState: string, element: any, params: {[key: string]: any}) => boolean)>;
+  matchers: Array<
+    (fromState: string, toState: string, element: any, params: {[key: string]: any}) => boolean
+  >;
   animation: Ast<AnimationMetadataType>;
   queryCount: number;
   depCount: number;
@@ -63,13 +67,13 @@ export interface GroupAst extends Ast<AnimationMetadataType.Group> {
 
 export interface AnimateAst extends Ast<AnimationMetadataType.Animate> {
   timings: TimingAst;
-  style: StyleAst|KeyframesAst;
+  style: StyleAst | KeyframesAst;
 }
 
 export interface StyleAst extends Ast<AnimationMetadataType.Style> {
-  styles: Array<(ɵStyleDataMap | string)>;
-  easing: string|null;
-  offset: number|null;
+  styles: Array<ɵStyleDataMap | string>;
+  easing: string | null;
+  offset: number | null;
   containsDynamicStyles: boolean;
   isEmptyStep?: boolean;
 }
@@ -105,7 +109,7 @@ export interface StaggerAst extends Ast<AnimationMetadataType.Stagger> {
 export interface TimingAst {
   duration: number;
   delay: number;
-  easing: string|null;
+  easing: string | null;
   dynamic?: boolean;
 }
 

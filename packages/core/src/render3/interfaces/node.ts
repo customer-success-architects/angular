@@ -3,15 +3,17 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
+import {Type} from '../../interface/type';
 import {KeyValueArray} from '../../util/array_utils';
 import {TStylingRange} from '../interfaces/styling';
+import {AttributeMarker} from './attribute_marker';
+
 import {TIcu} from './i18n';
 import {CssSelector} from './projection';
 import {RNode} from './renderer_dom';
-import {LView, TView} from './view';
-
+import type {LView, TView} from './view';
 
 /**
  * TNodeType corresponds to the {@link TNode} `type` property.
@@ -71,12 +73,17 @@ export const enum TNodeType {
    */
   Placeholder = 0b1000000,
 
+  /**
+   * The TNode contains information about a `@let` declaration.
+   */
+  LetDeclaration = 0b10000000,
+
   // Combined Types These should never be used for `TNode.type` only as a useful way to check
   // if `TNode.type` is one of several choices.
 
   // See: https://github.com/microsoft/TypeScript/issues/35875 why we can't refer to existing enum.
-  AnyRNode = 0b11,        // Text | Element,
-  AnyContainer = 0b1100,  // Container | ElementContainer, // See:
+  AnyRNode = 0b11, // Text | Element
+  AnyContainer = 0b1100, // Container | ElementContainer
 }
 
 /**
@@ -85,14 +92,38 @@ export const enum TNodeType {
  */
 export function toTNodeTypeAsString(tNodeType: TNodeType): string {
   let text = '';
-  (tNodeType & TNodeType.Text) && (text += '|Text');
-  (tNodeType & TNodeType.Element) && (text += '|Element');
-  (tNodeType & TNodeType.Container) && (text += '|Container');
-  (tNodeType & TNodeType.ElementContainer) && (text += '|ElementContainer');
-  (tNodeType & TNodeType.Projection) && (text += '|Projection');
-  (tNodeType & TNodeType.Icu) && (text += '|IcuContainer');
-  (tNodeType & TNodeType.Placeholder) && (text += '|Placeholder');
+  tNodeType & TNodeType.Text && (text += '|Text');
+  tNodeType & TNodeType.Element && (text += '|Element');
+  tNodeType & TNodeType.Container && (text += '|Container');
+  tNodeType & TNodeType.ElementContainer && (text += '|ElementContainer');
+  tNodeType & TNodeType.Projection && (text += '|Projection');
+  tNodeType & TNodeType.Icu && (text += '|IcuContainer');
+  tNodeType & TNodeType.Placeholder && (text += '|Placeholder');
+  tNodeType & TNodeType.LetDeclaration && (text += '|LetDeclaration');
   return text.length > 0 ? text.substring(1) : text;
+}
+
+/**
+ * Helper function to detect if a given value matches a `TNode` shape.
+ *
+ * The logic uses the `insertBeforeIndex` and its possible values as
+ * a way to differentiate a TNode shape from other types of objects
+ * within the `TView.data`. This is not a perfect check, but it can
+ * be a reasonable differentiator, since we control the shapes of objects
+ * within `TView.data`.
+ */
+export function isTNodeShape(value: unknown): value is TNode {
+  return (
+    value != null &&
+    typeof value === 'object' &&
+    ((value as TNode).insertBeforeIndex === null ||
+      typeof (value as TNode).insertBeforeIndex === 'number' ||
+      Array.isArray((value as TNode).insertBeforeIndex))
+  );
+}
+
+export function isLetDeclaration(tNode: TNode): boolean {
+  return !!(tNode.type & TNodeType.LetDeclaration);
 }
 
 /**
@@ -102,35 +133,86 @@ export const enum TNodeFlags {
   /** Bit #1 - This bit is set if the node is a host for any directive (including a component) */
   isDirectiveHost = 0x1,
 
-  /**
-   * Bit #2 - This bit is set if the node is a host for a component.
-   *
-   * Setting this bit implies that the `isDirectiveHost` bit is set as well.
-   * */
-  isComponentHost = 0x2,
+  /** Bit #2 - This bit is set if the node has been projected */
+  isProjected = 0x2,
 
-  /** Bit #3 - This bit is set if the node has been projected */
-  isProjected = 0x4,
+  /** Bit #3 - This bit is set if any directive on this node has content queries */
+  hasContentQuery = 0x4,
 
-  /** Bit #4 - This bit is set if any directive on this node has content queries */
-  hasContentQuery = 0x8,
+  /** Bit #4 - This bit is set if the node has any "class" inputs */
+  hasClassInput = 0x8,
 
-  /** Bit #5 - This bit is set if the node has any "class" inputs */
-  hasClassInput = 0x10,
+  /** Bit #5 - This bit is set if the node has any "style" inputs */
+  hasStyleInput = 0x10,
 
-  /** Bit #6 - This bit is set if the node has any "style" inputs */
-  hasStyleInput = 0x20,
-
-  /** Bit #7 This bit is set if the node has been detached by i18n */
-  isDetached = 0x40,
+  /** Bit #6 - This bit is set if the node has been detached by i18n */
+  isDetached = 0x20,
 
   /**
-   * Bit #8 - This bit is set if the node has directives with host bindings.
+   * Bit #7 - This bit is set if the node has directives with host bindings.
    *
    * This flags allows us to guard host-binding logic and invoke it only on nodes
    * that actually have directives with host bindings.
    */
-  hasHostBindings = 0x80,
+  hasHostBindings = 0x40,
+
+  /**
+   * Bit #8 - This bit is set if the node is a located inside skip hydration block.
+   */
+  inSkipHydrationBlock = 0x80,
+
+  /**
+   * Bit #9 - This bit is set if the node is a start of a set of control flow blocks.
+   */
+  isControlFlowStart = 0x100,
+
+  /**
+   * Bit #10 - This bit is set if the node is within a set of control flow blocks.
+   */
+  isInControlFlow = 0x200,
+
+  /**
+   * Bit #11 - This bit is set if the node represents a form control.
+   *
+   * True when the node has an input binding to a `ɵControl` directive (but not also to a custom
+   * component).
+   */
+  isFormControl = 0x400,
+
+  /**
+   * Bit #12 - This bit is set if the node hosts a custom control component.
+   *
+   * A custom control component's model property is named `value`.
+   */
+  isFormValueControl = 0x800,
+
+  /**
+   * Bit #13 - This bit is set if the node hosts a custom checkbox component.
+   *
+   * A custom checkbox component's model property is named `checked`.
+   */
+  isFormCheckboxControl = 0x1000,
+
+  /**
+   * Bit #14 - This bit is set if the node hosts an interoperable control implementation.
+   *
+   * This is used to bind to a `ControlValueAccessor` from `@angular/forms`.
+   */
+  isInteropControl = 0x2000,
+
+  /**
+   * Bit #15 - This bit is set if the node is a native control with a numeric type.
+   *
+   * This is used to determine whether the control supports the `min` and `max` properties.
+   */
+  isNativeNumericControl = 0x4000,
+
+  /**
+   * Bit #16 - This bit is set if the node is a native text control.
+   *
+   * This is used to determine whether control supports the `minLength` and `maxLength` properties.
+   */
+  isNativeTextControl = 0x8000,
 }
 
 /**
@@ -149,147 +231,12 @@ export const enum TNodeProviderIndexes {
 }
 
 /**
- * A set of marker values to be used in the attributes arrays. These markers indicate that some
- * items are not regular attributes and the processing should be adapted accordingly.
- */
-export const enum AttributeMarker {
-  /**
-   * An implicit marker which indicates that the value in the array are of `attributeKey`,
-   * `attributeValue` format.
-   *
-   * NOTE: This is implicit as it is the type when no marker is present in array. We indicate that
-   * it should not be present at runtime by the negative number.
-   */
-  ImplicitAttributes = -1,
-
-  /**
-   * Marker indicates that the following 3 values in the attributes array are:
-   * namespaceUri, attributeName, attributeValue
-   * in that order.
-   */
-  NamespaceURI = 0,
-
-  /**
-   * Signals class declaration.
-   *
-   * Each value following `Classes` designates a class name to include on the element.
-   * ## Example:
-   *
-   * Given:
-   * ```
-   * <div class="foo bar baz">...<d/vi>
-   * ```
-   *
-   * the generated code is:
-   * ```
-   * var _c1 = [AttributeMarker.Classes, 'foo', 'bar', 'baz'];
-   * ```
-   */
-  Classes = 1,
-
-  /**
-   * Signals style declaration.
-   *
-   * Each pair of values following `Styles` designates a style name and value to include on the
-   * element.
-   * ## Example:
-   *
-   * Given:
-   * ```
-   * <div style="width:100px; height:200px; color:red">...</div>
-   * ```
-   *
-   * the generated code is:
-   * ```
-   * var _c1 = [AttributeMarker.Styles, 'width', '100px', 'height'. '200px', 'color', 'red'];
-   * ```
-   */
-  Styles = 2,
-
-  /**
-   * Signals that the following attribute names were extracted from input or output bindings.
-   *
-   * For example, given the following HTML:
-   *
-   * ```
-   * <div moo="car" [foo]="exp" (bar)="doSth()">
-   * ```
-   *
-   * the generated code is:
-   *
-   * ```
-   * var _c1 = ['moo', 'car', AttributeMarker.Bindings, 'foo', 'bar'];
-   * ```
-   */
-  Bindings = 3,
-
-  /**
-   * Signals that the following attribute names were hoisted from an inline-template declaration.
-   *
-   * For example, given the following HTML:
-   *
-   * ```
-   * <div *ngFor="let value of values; trackBy:trackBy" dirA [dirB]="value">
-   * ```
-   *
-   * the generated code for the `template()` instruction would include:
-   *
-   * ```
-   * ['dirA', '', AttributeMarker.Bindings, 'dirB', AttributeMarker.Template, 'ngFor', 'ngForOf',
-   * 'ngForTrackBy', 'let-value']
-   * ```
-   *
-   * while the generated code for the `element()` instruction inside the template function would
-   * include:
-   *
-   * ```
-   * ['dirA', '', AttributeMarker.Bindings, 'dirB']
-   * ```
-   */
-  Template = 4,
-
-  /**
-   * Signals that the following attribute is `ngProjectAs` and its value is a parsed
-   * `CssSelector`.
-   *
-   * For example, given the following HTML:
-   *
-   * ```
-   * <h1 attr="value" ngProjectAs="[title]">
-   * ```
-   *
-   * the generated code for the `element()` instruction would include:
-   *
-   * ```
-   * ['attr', 'value', AttributeMarker.ProjectAs, ['', 'title', '']]
-   * ```
-   */
-  ProjectAs = 5,
-
-  /**
-   * Signals that the following attribute will be translated by runtime i18n
-   *
-   * For example, given the following HTML:
-   *
-   * ```
-   * <div moo="car" foo="value" i18n-foo [bar]="binding" i18n-bar>
-   * ```
-   *
-   * the generated code is:
-   *
-   * ```
-   * var _c1 = ['moo', 'car', AttributeMarker.I18n, 'foo', 'bar'];
-   */
-  I18n = 6,
-}
-
-/**
  * A combination of:
  * - Attribute names and values.
  * - Special markers acting as flags to alter attributes processing.
  * - Parsed ngProjectAs selectors.
  */
-export type TAttributes = (string|AttributeMarker|CssSelector)[];
+export type TAttributes = (string | AttributeMarker | CssSelector)[];
 
 /**
  * Constants that are associated with a view. Includes:
@@ -297,7 +244,7 @@ export type TAttributes = (string|AttributeMarker|CssSelector)[];
  * - Local definition arrays.
  * - Translated messages (i18n).
  */
-export type TConstants = (TAttributes|string)[];
+export type TConstants = (TAttributes | string)[];
 
 /**
  * Factory function that returns an array of consts. Consts can be represented as a function in
@@ -311,7 +258,7 @@ export type TConstantsFactory = () => TConstants;
  * TConstants type that describes how the `consts` field is generated on ComponentDef: it can be
  * either an array or a factory function that returns that array.
  */
-export type TConstantsOrFactory = TConstants|TConstantsFactory;
+export type TConstantsOrFactory = TConstants | TConstantsFactory;
 
 /**
  * Binding data (flyweight) for a particular node that is shared between all templates
@@ -350,7 +297,7 @@ export interface TNode {
    * such a case the value stores an array of text nodes to insert.
    *
    * Example:
-   * ```
+   * ```html
    * <div i18n>
    *   Hello <span>World</span>!
    * </div>
@@ -363,7 +310,7 @@ export interface TNode {
    * `<span>` itself.
    *
    * Pseudo code:
-   * ```
+   * ```ts
    *   if (insertBeforeIndex === null) {
    *     // append as normal
    *   } else if (Array.isArray(insertBeforeIndex)) {
@@ -407,11 +354,7 @@ export interface TNode {
    */
   injectorIndex: number;
 
-  /**
-   * Stores starting index of the directives.
-   *
-   * NOTE: The first directive is always component (if present).
-   */
+  /** Stores starting index of the directives. */
   directiveStart: number;
 
   /**
@@ -422,6 +365,13 @@ export interface TNode {
    * `LFrame.bindingRootIndex` before `HostBindingFunction` is executed.
    */
   directiveEnd: number;
+
+  /**
+   * Offset from the `directiveStart` at which the component (one at most) of the node is stored.
+   * Set to -1 if no components have been applied to the node. Component index can be found using
+   * `directiveStart + componentOffset`.
+   */
+  componentOffset: number;
 
   /**
    * Stores the last directive which had a styling instruction.
@@ -445,7 +395,7 @@ export interface TNode {
    * Stores indexes of property bindings. This field is only set in the ngDevMode and holds
    * indexes of property bindings so TestBed can get bound property metadata for a given node.
    */
-  propertyBindings: number[]|null;
+  propertyBindings: number[] | null;
 
   /**
    * Stores if Node isComponent, isProjected, hasContentQuery, hasClassInput and hasStyleInput
@@ -485,7 +435,7 @@ export interface TNode {
    * This array can contain flags that will indicate "special attributes" (attributes with
    * namespaces, attributes extracted from bindings and outputs).
    */
-  attrs: TAttributes|null;
+  attrs: TAttributes | null;
 
   /**
    * Same as `TNode.attrs` but contains merged data across all directive host bindings.
@@ -498,7 +448,7 @@ export interface TNode {
    * - Directives' `hostAttrs`
    * - Template `TNode.attrs` associated with the current `TNode`.
    */
-  mergedAttrs: TAttributes|null;
+  mergedAttrs: TAttributes | null;
 
   /**
    * A set of local names under which a given element is exported in a template and
@@ -517,50 +467,59 @@ export interface TNode {
    * - `<my-cmpt #foo #bar="directiveExportAs">` => `["foo", myCmptIdx, "bar", directiveIdx]`
    * - `<div #foo #bar="directiveExportAs">` => `["foo", -1, "bar", directiveIdx]`
    */
-  localNames: (string|number)[]|null;
+  localNames: (string | number)[] | null;
 
   /** Information about input properties that need to be set once from attribute data. */
-  initialInputs: InitialInputData|null|undefined;
+  initialInputs: InitialInputData | null;
 
   /**
    * Input data for all directives on this node. `null` means that there are no directives with
    * inputs on this node.
    */
-  inputs: PropertyAliases|null;
+  inputs: NodeInputBindings | null;
+
+  /**
+   * Input data for host directives applied to the node.
+   */
+  hostDirectiveInputs: HostDirectiveInputs | null;
 
   /**
    * Output data for all directives on this node. `null` means that there are no directives with
    * outputs on this node.
    */
-  outputs: PropertyAliases|null;
+  outputs: NodeOutputBindings | null;
 
   /**
-   * The TView or TViews attached to this node.
-   *
-   * If this TNode corresponds to an LContainer with inline views, the container will
-   * need to store separate static data for each of its view blocks (TView[]). Otherwise,
-   * nodes in inline views with the same index as nodes in their parent views will overwrite
-   * each other, as they are in the same template.
-   *
-   * Each index in this array corresponds to the static data for a certain
-   * view. So if you had V(0) and V(1) in a container, you might have:
-   *
-   * [
-   *   [{tagName: 'div', attrs: ...}, null],     // V(0) TView
-   *   [{tagName: 'button', attrs ...}, null]    // V(1) TView
+   * Input data for host directives applied to the node.
+   */
+  hostDirectiveOutputs: HostDirectiveOutputs | null;
+
+  /**
+   * Mapping between directive classes applied to the node and their indexes.
+   */
+  directiveToIndex: DirectiveIndexMap | null;
+
+  /**
+   * The TView attached to this node.
    *
    * If this TNode corresponds to an LContainer with a template (e.g. structural
    * directive), the template's TView will be stored here.
    *
-   * If this TNode corresponds to an element, tViews will be null .
+   * If this TNode corresponds to an element, tView will be `null`.
    */
-  tViews: TView|TView[]|null;
+  tView: TView | null;
 
   /**
    * The next sibling node. Necessary so we can propagate through the root nodes of a view
    * to insert them or remove them from the DOM.
    */
-  next: TNode|null;
+  next: TNode | null;
+
+  /**
+   * The previous sibling node.
+   * This simplifies operations when we need a pointer to the previous node.
+   */
+  prev: TNode | null;
 
   /**
    * The next projected sibling. Since in Angular content projection works on the node-by-node
@@ -568,7 +527,7 @@ export interface TNode {
    * (target view). At the same time we need to keep initial relationship between nodes as
    * expressed in content view.
    */
-  projectionNext: TNode|null;
+  projectionNext: TNode | null;
 
   /**
    * First child of the current node.
@@ -576,7 +535,7 @@ export interface TNode {
    * For component nodes, the child will always be a ContentChild (in same view).
    * For embedded view nodes, the child will be in their child view.
    */
-  child: TNode|null;
+  child: TNode | null;
 
   /**
    * Parent node (in the same view only).
@@ -592,19 +551,19 @@ export interface TNode {
    *
    * If this is an inline view node (V), the parent will be its container.
    */
-  parent: TElementNode|TContainerNode|null;
+  parent: TElementNode | TContainerNode | null;
 
   /**
    * List of projected TNodes for a given component host element OR index into the said nodes.
    *
    * For easier discussion assume this example:
    * `<parent>`'s view definition:
-   * ```
+   * ```html
    * <child id="c1">content1</child>
    * <child id="c2"><span>content2</span></child>
    * ```
    * `<child>`'s view definition:
-   * ```
+   * ```html
    * <ng-content id="cont1"></ng-content>
    * ```
    *
@@ -633,7 +592,7 @@ export interface TNode {
    * If `projection` is of type `RNode[][]` than we have a collection of native nodes passed as
    * projectable nodes during dynamic component creation.
    */
-  projection: (TNode|RNode[])[]|number|null;
+  projection: (TNode | RNode[])[] | number | null;
 
   /**
    * A collection of all `style` static values for an element (including from host).
@@ -644,8 +603,7 @@ export interface TNode {
    * - There are one or more initial `style`s on a directive/component host
    *   (e.g. `@Directive({host: {style: "width:200px;" } }`)
    */
-  styles: string|null;
-
+  styles: string | null;
 
   /**
    * A collection of all `style` static values for an element excluding host sources.
@@ -658,7 +616,7 @@ export interface TNode {
    * would have to concatenate the attributes on every template pass. Instead, we process once on
    * first create pass and store here.
    */
-  stylesWithoutHost: string|null;
+  stylesWithoutHost: string | null;
 
   /**
    * A `KeyValueArray` version of residual `styles`.
@@ -668,7 +626,7 @@ export interface TNode {
    * styling than the instruction.
    *
    * Imagine:
-   * ```
+   * ```angular-ts
    * <div style="color: highest;" my-dir>
    *
    * @Directive({
@@ -687,7 +645,7 @@ export interface TNode {
    * - `null`: initialized but `styles` is `null`
    * - `KeyValueArray`: parsed version of `styles`.
    */
-  residualStyles: KeyValueArray<any>|undefined|null;
+  residualStyles: KeyValueArray<any> | undefined | null;
 
   /**
    * A collection of all class static values for an element (including from host).
@@ -698,7 +656,7 @@ export interface TNode {
    * - There are one or more initial classes on an directive/component host
    *   (e.g. `@Directive({host: {class: "SOME_CLASS" } }`)
    */
-  classes: string|null;
+  classes: string | null;
 
   /**
    * A collection of all class static values for an element excluding host sources.
@@ -711,7 +669,7 @@ export interface TNode {
    * `tNode.attrs`, we would have to concatenate the attributes on every template pass. Instead,
    * we process once on first create pass and store here.
    */
-  classesWithoutHost: string|null;
+  classesWithoutHost: string | null;
 
   /**
    * A `KeyValueArray` version of residual `classes`.
@@ -722,7 +680,7 @@ export interface TNode {
    * - `null`: initialized but `classes` is `null`
    * - `KeyValueArray`: parsed version of `classes`.
    */
-  residualClasses: KeyValueArray<any>|undefined|null;
+  residualClasses: KeyValueArray<any> | undefined | null;
 
   /**
    * Stores the head/tail index of the class bindings.
@@ -758,27 +716,27 @@ export interface TNode {
 /**
  * See `TNode.insertBeforeIndex`
  */
-export type InsertBeforeIndex = null|number|number[];
+export type InsertBeforeIndex = null | number | number[];
 
 /** Static data for an element  */
 export interface TElementNode extends TNode {
   /** Index in the data[] array */
   index: number;
-  child: TElementNode|TTextNode|TElementContainerNode|TContainerNode|TProjectionNode|null;
+  child: TElementNode | TTextNode | TElementContainerNode | TContainerNode | TProjectionNode | null;
   /**
    * Element nodes will have parents unless they are the first node of a component or
    * embedded view (which means their parent is in a different view and must be
    * retrieved using viewData[HOST_NODE]).
    */
-  parent: TElementNode|TElementContainerNode|null;
-  tViews: null;
+  parent: TElementNode | TElementContainerNode | null;
+  tView: null;
 
   /**
    * If this is a component TNode with projection, this will be an array of projected
    * TNodes or native nodes (see TNode.projection for more info). If it's a regular element node
    * or a component without projection, it will be null.
    */
-  projection: (TNode|RNode[])[]|null;
+  projection: (TNode | RNode[])[] | null;
 
   /**
    * Stores TagName
@@ -796,8 +754,8 @@ export interface TTextNode extends TNode {
    * embedded view (which means their parent is in a different view and must be
    * retrieved using LView.node).
    */
-  parent: TElementNode|TElementContainerNode|null;
-  tViews: null;
+  parent: TElementNode | TElementContainerNode | null;
+  tView: null;
   projection: null;
 }
 
@@ -818,8 +776,8 @@ export interface TContainerNode extends TNode {
    * - They are the first node of a component or embedded view
    * - They are dynamically created
    */
-  parent: TElementNode|TElementContainerNode|null;
-  tViews: TView|TView[]|null;
+  parent: TElementNode | TElementContainerNode | null;
+  tView: TView | null;
   projection: null;
   value: null;
 }
@@ -828,9 +786,9 @@ export interface TContainerNode extends TNode {
 export interface TElementContainerNode extends TNode {
   /** Index in the LView[] array. */
   index: number;
-  child: TElementNode|TTextNode|TContainerNode|TElementContainerNode|TProjectionNode|null;
-  parent: TElementNode|TElementContainerNode|null;
-  tViews: null;
+  child: TElementNode | TTextNode | TContainerNode | TElementContainerNode | TProjectionNode | null;
+  parent: TElementNode | TElementContainerNode | null;
+  tView: null;
   projection: null;
 }
 
@@ -839,8 +797,8 @@ export interface TIcuContainerNode extends TNode {
   /** Index in the LView[] array. */
   index: number;
   child: null;
-  parent: TElementNode|TElementContainerNode|null;
-  tViews: null;
+  parent: TElementNode | TElementContainerNode | null;
+  tView: null;
   projection: null;
   value: TIcu;
 }
@@ -854,8 +812,8 @@ export interface TProjectionNode extends TNode {
    * or embedded view (which means their parent is in a different view and must be
    * retrieved using LView.node).
    */
-  parent: TElementNode|TElementContainerNode|null;
-  tViews: null;
+  parent: TElementNode | TElementContainerNode | null;
+  tView: null;
 
   /** Index of the projection node. (See TNode.projection for more info.) */
   projection: number;
@@ -863,34 +821,47 @@ export interface TProjectionNode extends TNode {
 }
 
 /**
+ * Static data for a `@let` declaration. This node is necessary, because the expression of a
+ * `@let` declaration can contain code that uses the node injector (e.g. pipes). In order for
+ * the node injector to work, it needs this `TNode`.
+ */
+export interface TLetDeclarationNode extends TNode {
+  index: number;
+  child: null;
+  parent: TElementNode | TElementContainerNode | null;
+  tView: null;
+  projection: null;
+  value: null; // TODO(crisbeto): capture the name here? Might come in handy for the dev tools.
+}
+
+/**
  * A union type representing all TNode types that can host a directive.
  */
-export type TDirectiveHostNode = TElementNode|TContainerNode|TElementContainerNode;
+export type TDirectiveHostNode = TElementNode | TContainerNode | TElementContainerNode;
 
 /**
- * This mapping is necessary so we can set input properties and output listeners
- * properly at runtime when property names are minified or aliased.
+ * Maps the public names of outputs available on a specific node to the index
+ * of the directive instance that defines the output, for example:
  *
- * Key: unminified / public input or output name
- * Value: array containing minified / internal name and related directive index
- *
- * The value must be an array to support inputs and outputs with the same name
- * on the same node.
+ * ```
+ * {
+ *   "publicName": [0, 5]
+ * }
+ * ```
  */
-export type PropertyAliases = {
-  // This uses an object map because using the Map type would be too slow
-  [key: string]: PropertyAliasValue
-};
+export type NodeOutputBindings = Record<string, number[]>;
 
 /**
- * Store the runtime input or output names for all the directives.
+ * Maps the public names of inputs applied to a specific node to the index of the
+ * directive instance to which the input value should be written, for example:
  *
- * i+0: directive instance index
- * i+1: privateName
- *
- * e.g. [0, 'change-minified']
+ * ```
+ * {
+ *   "publicName": [0, 5]
+ * }
+ * ```
  */
-export type PropertyAliasValue = (number|string)[];
+export type NodeInputBindings = Record<string, number[]>;
 
 /**
  * This array contains information about input properties that
@@ -900,9 +871,8 @@ export type PropertyAliasValue = (number|string)[];
  *
  * Within each sub-array:
  *
- * i+0: attribute name
- * i+1: minified/internal input name
- * i+2: initial value
+ * i+0: public name
+ * i+1: initial value
  *
  * If a directive on a node does not have any input properties
  * that should be set from attributes, its index is set to null
@@ -910,7 +880,7 @@ export type PropertyAliasValue = (number|string)[];
  *
  * e.g. [null, ['role-min', 'minified-input', 'button']]
  */
-export type InitialInputData = (InitialInputs|null)[];
+export type InitialInputData = (InitialInputs | null)[];
 
 /**
  * Used by InitialInputData to store input properties
@@ -918,20 +888,61 @@ export type InitialInputData = (InitialInputs|null)[];
  *
  * i+0: attribute name
  * i+1: minified/internal input name
- * i+2: initial value
+ * i+2: input flags
+ * i+3: initial value
  *
  * e.g. ['role-min', 'minified-input', 'button']
  */
 export type InitialInputs = string[];
 
-// Note: This hack is necessary so we don't erroneously get a circular dependency
-// failure based on types.
-export const unusedValueExportToPlacateAjd = 1;
+/**
+ * Represents inputs coming from a host directive and exposed on a TNode.
+ *
+ * - The key is the public name of an input as it is exposed on the specific node.
+ * - The value is an array where:
+ *   - i+0: Index of the host directive that should be written to.
+ *   - i+1: Public name of the input as it was defined on the host directive before aliasing.
+ */
+export type HostDirectiveInputs = Record<string, (number | string)[]>;
+
+/**
+ * Represents outputs coming from a host directive and exposed on a TNode.
+ *
+ * - The key is the public name of an output as it is exposed on the specific node.
+ * - The value is an array where:
+ *   - i+0: Index of the host directive on which the output is defined..
+ *   - i+1: Public name of the output as it was defined on the host directive before aliasing.
+ */
+export type HostDirectiveOutputs = Record<string, (number | string)[]>;
+
+/**
+ * Represents a map between a class reference and the index at which its directive is available on
+ * a specific TNode. The value can be either:
+ *   1. A number means that there's only one selector-matched directive on the node and it
+ *      doesn't have any host directives.
+ *   2. An array means that there's a selector-matched directive and it has host directives.
+ *      The array is structured as follows:
+ *        - 0: Index of the selector-matched directive.
+ *        - 1: Start index of the range within which the host directives are defined.
+ *        - 2: End of the host directive range.
+ *
+ * Example:
+ * ```
+ * Map {
+ *   [NoHostDirectives]: 5,
+ *   [HasHostDirectives]: [10, 6, 8],
+ * }
+ * ```
+ */
+export type DirectiveIndexMap = Map<
+  Type<unknown>,
+  number | [directiveIndex: number, hostDirectivesStart: number, hostDirectivesEnd: number]
+>;
 
 /**
  * Type representing a set of TNodes that can have local refs (`#foo`) placed on them.
  */
-export type TNodeWithLocalRefs = TContainerNode|TElementNode|TElementContainerNode;
+export type TNodeWithLocalRefs = TContainerNode | TElementNode | TElementContainerNode;
 
 /**
  * Type for a function that extracts a value for a local refs.
@@ -944,11 +955,11 @@ export type LocalRefExtractor = (tNode: TNodeWithLocalRefs, currentView: LView) 
 /**
  * Returns `true` if the `TNode` has a directive which has `@Input()` for `class` binding.
  *
- * ```
+ * ```html
  * <div my-dir [class]="exp"></div>
  * ```
  * and
- * ```
+ * ```ts
  * @Directive({
  * })
  * class MyDirective {
@@ -969,11 +980,11 @@ export function hasClassInput(tNode: TNode) {
 /**
  * Returns `true` if the `TNode` has a directive which has `@Input()` for `style` binding.
  *
- * ```
+ * ```html
  * <div my-dir [style]="exp"></div>
  * ```
  * and
- * ```
+ * ```ts
  * @Directive({
  * })
  * class MyDirective {

@@ -3,26 +3,31 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 import * as o from '@angular/compiler';
+
 import {FatalLinkerError} from '../fatal_linker_error';
+
 import {AstHost, Range} from './ast_host';
 
 /**
  * Represents only those types in `T` that are object types.
+ *
+ * Note: Excluding `Array` types as we consider object literals are "objects"
+ * in the AST.
  */
-type ObjectType<T> = Extract<T, object>;
+type ObjectType<T> = T extends Array<any> ? never : T extends Record<string, any> ? T : never;
 
 /**
  * Represents the value type of an object literal.
  */
-type ObjectValueType<T> = T extends Record<string, infer R>? R : never;
+type ObjectValueType<T> = T extends Record<string, infer R> ? R : never;
 
 /**
  * Represents the value type of an array literal.
  */
-type ArrayValueType<T> = T extends Array<infer R>? R : never;
+type ArrayValueType<T> = T extends Array<infer R> ? R : never;
 
 /**
  * Ensures that `This` has its generic type `Actual` conform to the expected generic type in
@@ -31,16 +36,9 @@ type ArrayValueType<T> = T extends Array<infer R>? R : never;
 type ConformsTo<This, Actual, Expected> = Actual extends Expected ? This : never;
 
 /**
- * Ensures that `This` is an `AstValue` whose generic type conforms to `Expected`, to disallow
- * calling a method if the value's type does not conform.
- */
-type HasValueType<This, Expected> =
-    This extends AstValue<infer Actual, any>? ConformsTo<This, Actual, Expected>: never;
-
-/**
  * Represents only the string keys of type `T`.
  */
-type PropertyKey<T> = keyof T&string;
+type PropertyKey<T> = keyof T & string;
 
 /**
  * This helper class wraps an object expression along with an `AstHost` object, exposing helper
@@ -59,15 +57,19 @@ export class AstObject<T extends object, TExpression> {
   /**
    * Create a new `AstObject` from the given `expression` and `host`.
    */
-  static parse<T extends object, TExpression>(expression: TExpression, host: AstHost<TExpression>):
-      AstObject<T, TExpression> {
+  static parse<T extends object, TExpression>(
+    expression: TExpression,
+    host: AstHost<TExpression>,
+  ): AstObject<T, TExpression> {
     const obj = host.parseObjectLiteral(expression);
-    return new AstObject(expression, obj, host);
+    return new AstObject<T, TExpression>(expression, obj, host);
   }
 
   private constructor(
-      readonly expression: TExpression, private obj: Map<string, TExpression>,
-      private host: AstHost<TExpression>) {}
+    readonly expression: TExpression,
+    private obj: Map<string, TExpression>,
+    private host: AstHost<TExpression>,
+  ) {}
 
   /**
    * Returns true if the object has a property called `propertyName`.
@@ -81,8 +83,10 @@ export class AstObject<T extends object, TExpression> {
    *
    * Throws an error if there is no such property or the property is not a number.
    */
-  getNumber<K extends PropertyKey<T>>(this: ConformsTo<this, T[K], number>, propertyName: K):
-      number {
+  getNumber<K extends PropertyKey<T>>(
+    this: ConformsTo<this, T[K], number>,
+    propertyName: K,
+  ): number {
     return this.host.parseNumericLiteral(this.getRequiredProperty(propertyName));
   }
 
@@ -91,8 +95,10 @@ export class AstObject<T extends object, TExpression> {
    *
    * Throws an error if there is no such property or the property is not a string.
    */
-  getString<K extends PropertyKey<T>>(this: ConformsTo<this, T[K], string>, propertyName: K):
-      string {
+  getString<K extends PropertyKey<T>>(
+    this: ConformsTo<this, T[K], string>,
+    propertyName: K,
+  ): string {
     return this.host.parseStringLiteral(this.getRequiredProperty(propertyName));
   }
 
@@ -101,8 +107,10 @@ export class AstObject<T extends object, TExpression> {
    *
    * Throws an error if there is no such property or the property is not a boolean.
    */
-  getBoolean<K extends PropertyKey<T>>(this: ConformsTo<this, T[K], boolean>, propertyName: K):
-      boolean {
+  getBoolean<K extends PropertyKey<T>>(
+    this: ConformsTo<this, T[K], boolean>,
+    propertyName: K,
+  ): boolean {
     return this.host.parseBooleanLiteral(this.getRequiredProperty(propertyName)) as any;
   }
 
@@ -111,11 +119,13 @@ export class AstObject<T extends object, TExpression> {
    *
    * Throws an error if there is no such property or the property is not an object.
    */
-  getObject<K extends PropertyKey<T>>(this: ConformsTo<this, T[K], object>, propertyName: K):
-      AstObject<ObjectType<T[K]>, TExpression> {
+  getObject<K extends PropertyKey<T>>(
+    this: ConformsTo<this, T[K], object>,
+    propertyName: K,
+  ): AstObject<ObjectType<T[K]>, TExpression> {
     const expr = this.getRequiredProperty(propertyName);
     const obj = this.host.parseObjectLiteral(expr);
-    return new AstObject(expr, obj, this.host);
+    return new AstObject<ObjectType<T[K]>, TExpression>(expr, obj, this.host);
   }
 
   /**
@@ -123,10 +133,12 @@ export class AstObject<T extends object, TExpression> {
    *
    * Throws an error if there is no such property or the property is not an array.
    */
-  getArray<K extends PropertyKey<T>>(this: ConformsTo<this, T[K], unknown[]>, propertyName: K):
-      AstValue<ArrayValueType<T[K]>, TExpression>[] {
+  getArray<K extends PropertyKey<T>>(
+    this: ConformsTo<this, T[K], unknown[]>,
+    propertyName: K,
+  ): AstValue<ArrayValueType<T[K]>, TExpression>[] {
     const arr = this.host.parseArrayLiteral(this.getRequiredProperty(propertyName));
-    return arr.map(entry => new AstValue(entry, this.host));
+    return arr.map((entry) => new AstValue<ArrayValueType<T[K]>, TExpression>(entry, this.host));
   }
 
   /**
@@ -154,17 +166,22 @@ export class AstObject<T extends object, TExpression> {
    * Throws an error if there is no such property.
    */
   getValue<K extends PropertyKey<T>>(propertyName: K): AstValue<T[K], TExpression> {
-    return new AstValue(this.getRequiredProperty(propertyName), this.host);
+    return new AstValue<T[K], TExpression>(this.getRequiredProperty(propertyName), this.host);
   }
 
   /**
    * Converts the AstObject to a raw JavaScript object, mapping each property value (as an
    * `AstValue`) to the generic type (`T`) via the `mapper` function.
    */
-  toLiteral<V>(mapper: (value: AstValue<ObjectValueType<T>, TExpression>) => V): Record<string, V> {
+  toLiteral<V>(
+    mapper: (value: AstValue<ObjectValueType<T>, TExpression>, key: string) => V,
+  ): Record<string, V> {
     const result: Record<string, V> = {};
     for (const [key, expression] of this.obj) {
-      result[key] = mapper(new AstValue(expression, this.host));
+      result[key] = mapper(
+        new AstValue<ObjectValueType<T>, TExpression>(expression, this.host),
+        key,
+      );
     }
     return result;
   }
@@ -176,7 +193,7 @@ export class AstObject<T extends object, TExpression> {
   toMap<V>(mapper: (value: AstValue<ObjectValueType<T>, TExpression>) => V): Map<string, V> {
     const result = new Map<string, V>();
     for (const [key, expression] of this.obj) {
-      result.set(key, mapper(new AstValue(expression, this.host)));
+      result.set(key, mapper(new AstValue<ObjectValueType<T>, TExpression>(expression, this.host)));
     }
     return result;
   }
@@ -184,7 +201,9 @@ export class AstObject<T extends object, TExpression> {
   private getRequiredProperty(propertyName: PropertyKey<T>): TExpression {
     if (!this.obj.has(propertyName)) {
       throw new FatalLinkerError(
-          this.expression, `Expected property '${propertyName}' to be present.`);
+        this.expression,
+        `Expected property '${propertyName}' to be present.`,
+      );
     }
     return this.obj.get(propertyName)!;
   }
@@ -199,13 +218,19 @@ export class AstObject<T extends object, TExpression> {
  * main goal is to provide references to a documented type.
  */
 export class AstValue<T, TExpression> {
-  constructor(readonly expression: TExpression, private host: AstHost<TExpression>) {}
+  /** Type brand that ensures that the `T` type is respected for assignability. */
+  ɵtypeBrand: T = null!;
+
+  constructor(
+    readonly expression: TExpression,
+    private host: AstHost<TExpression>,
+  ) {}
 
   /**
    * Get the name of the symbol represented by the given expression node, or `null` if it is not a
    * symbol.
    */
-  getSymbolName(): string|null {
+  getSymbolName(): string | null {
     return this.host.getSymbolName(this.expression);
   }
 
@@ -219,7 +244,7 @@ export class AstValue<T, TExpression> {
   /**
    * Parse the number from this value, or error if it is not a number.
    */
-  getNumber(this: HasValueType<this, number>): number {
+  getNumber(this: ConformsTo<this, T, number>): number {
     return this.host.parseNumericLiteral(this.expression);
   }
 
@@ -233,7 +258,7 @@ export class AstValue<T, TExpression> {
   /**
    * Parse the string from this value, or error if it is not a string.
    */
-  getString(this: HasValueType<this, string>): string {
+  getString(this: ConformsTo<this, T, string>): string {
     return this.host.parseStringLiteral(this.expression);
   }
 
@@ -247,7 +272,7 @@ export class AstValue<T, TExpression> {
   /**
    * Parse the boolean from this value, or error if it is not a boolean.
    */
-  getBoolean(this: HasValueType<this, boolean>): boolean {
+  getBoolean(this: ConformsTo<this, T, boolean>): boolean {
     return this.host.parseBooleanLiteral(this.expression);
   }
 
@@ -261,8 +286,8 @@ export class AstValue<T, TExpression> {
   /**
    * Parse this value into an `AstObject`, or error if it is not an object literal.
    */
-  getObject(this: HasValueType<this, object>): AstObject<ObjectType<T>, TExpression> {
-    return AstObject.parse(this.expression, this.host);
+  getObject(this: ConformsTo<this, T, object>): AstObject<ObjectType<T>, TExpression> {
+    return AstObject.parse<ObjectType<T>, TExpression>(this.expression, this.host);
   }
 
   /**
@@ -272,12 +297,17 @@ export class AstValue<T, TExpression> {
     return this.host.isArrayLiteral(this.expression);
   }
 
+  /** Whether the value is explicitly set to `null`. */
+  isNull(): boolean {
+    return this.host.isNull(this.expression);
+  }
+
   /**
    * Parse this value into an array of `AstValue` objects, or error if it is not an array literal.
    */
-  getArray(this: HasValueType<this, unknown[]>): AstValue<ArrayValueType<T>, TExpression>[] {
+  getArray(this: ConformsTo<this, T, unknown[]>): AstValue<ArrayValueType<T>, TExpression>[] {
     const arr = this.host.parseArrayLiteral(this.expression);
-    return arr.map(entry => new AstValue(entry, this.host));
+    return arr.map((entry) => new AstValue<ArrayValueType<T>, TExpression>(entry, this.host));
   }
 
   /**
@@ -291,8 +321,18 @@ export class AstValue<T, TExpression> {
    * Extract the return value as an `AstValue` from this value as a function expression, or error if
    * it is not a function expression.
    */
-  getFunctionReturnValue<R>(this: HasValueType<this, Function>): AstValue<R, TExpression> {
+  getFunctionReturnValue<R>(this: ConformsTo<this, T, Function>): AstValue<R, TExpression> {
     return new AstValue(this.host.parseReturnValue(this.expression), this.host);
+  }
+
+  /**
+   * Extract the parameters from this value as a function expression, or error if it is not a
+   * function expression.
+   */
+  getFunctionParameters<R>(this: ConformsTo<this, T, Function>): AstValue<R, TExpression>[] {
+    return this.host
+      .parseParameters(this.expression)
+      .map((param) => new AstValue(param, this.host));
   }
 
   isCallExpression(): boolean {
@@ -305,7 +345,7 @@ export class AstValue<T, TExpression> {
 
   getArguments(): AstValue<unknown, TExpression>[] {
     const args = this.host.parseArguments(this.expression);
-    return args.map(arg => new AstValue(arg, this.host));
+    return args.map((arg) => new AstValue(arg, this.host));
   }
 
   /**

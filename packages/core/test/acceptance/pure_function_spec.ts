@@ -3,29 +3,43 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 import {CommonModule} from '@angular/common';
-import {Component, Directive, Input, QueryList, ViewChild, ViewChildren} from '@angular/core';
-import {TestBed} from '@angular/core/testing';
+import {
+  Component,
+  Directive,
+  Input,
+  provideZoneChangeDetection,
+  QueryList,
+  ViewChild,
+  ViewChildren,
+} from '../../src/core';
+import {TestBed} from '../../testing';
 import {By} from '@angular/platform-browser';
 
 describe('components using pure function instructions internally', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideZoneChangeDetection()],
+    });
+  });
   describe('with array literals', () => {
     @Component({
       selector: 'my-comp',
       template: ``,
+      standalone: false,
     })
     class MyComp {
       @Input() names: string[] = [];
     }
-
 
     it('should support an array literal with a binding', () => {
       @Component({
         template: `
                 <my-comp [names]="['Nancy', customName, 'Bess']"></my-comp>
               `,
+        standalone: false,
       })
       class App {
         showing = true;
@@ -61,12 +75,12 @@ describe('components using pure function instructions internally', () => {
       expect(myComp!.names).toEqual(['should not be overwritten']);
     });
 
-
     it('should support array literals in dynamic views', () => {
       @Component({
         template: `
                 <my-comp *ngIf="showing" [names]="['Nancy', customName, 'Bess']"></my-comp>
               `,
+        standalone: false,
       })
       class App {
         showing = true;
@@ -87,6 +101,7 @@ describe('components using pure function instructions internally', () => {
       @Component({
         selector: 'many-prop-comp',
         template: ``,
+        standalone: false,
       })
       class ManyPropComp {
         @Input() names1: string[] = [];
@@ -99,6 +114,7 @@ describe('components using pure function instructions internally', () => {
                 <many-prop-comp [names1]="['Nancy', customName]" [names2]="[customName2]">
                 </many-prop-comp>
               `,
+        standalone: false,
       })
       class App {
         showing = true;
@@ -123,13 +139,13 @@ describe('components using pure function instructions internally', () => {
       expect(manyPropComp!.names2).toEqual(['Carson']);
     });
 
-
     it('should support an array literals inside fn calls', () => {
       @Component({
         selector: 'parent-comp',
         template: `
                 <my-comp [names]="someFn(['Nancy', customName])"></my-comp>
-              `
+              `,
+        standalone: false,
       })
       class ParentComp {
         customName = 'Bess';
@@ -144,19 +160,19 @@ describe('components using pure function instructions internally', () => {
         template: `
                 <parent-comp></parent-comp>
                 <parent-comp></parent-comp>
-              `
+              `,
+        standalone: false,
       })
-      class App {
-      }
+      class App {}
 
       TestBed.configureTestingModule({
         declarations: [App, MyComp, ParentComp],
       });
       const fixture = TestBed.createComponent(App);
       fixture.detectChanges();
-      const myComps =
-          fixture.debugElement.queryAll(By.directive(MyComp)).map(f => f.componentInstance);
-
+      const myComps = fixture.debugElement
+        .queryAll(By.directive(MyComp))
+        .map((f) => f.componentInstance);
 
       const firstArray = myComps[0].names;
       const secondArray = myComps[1].names;
@@ -171,12 +187,12 @@ describe('components using pure function instructions internally', () => {
       expect(secondArray).toBe(myComps[1].names);
     });
 
-
     it('should support an array literal with more than 1 binding', () => {
       @Component({
         template: `
                 <my-comp *ngIf="showing" [names]="['Nancy', customName, 'Bess', customName2]"></my-comp>
               `,
+        standalone: false,
       })
       class App {
         showing = true;
@@ -216,7 +232,6 @@ describe('components using pure function instructions internally', () => {
       expect(myComp.names).toEqual(['should not be overwritten']);
     });
 
-
     it('should work up to 8 bindings', () => {
       @Component({
         template: `
@@ -228,7 +243,8 @@ describe('components using pure function instructions internally', () => {
                 <my-comp [names]="['a', 'b', v3, v4, v5, v6, v7, v8]"></my-comp>
                 <my-comp [names]="['a', v2, v3, v4, v5, v6, v7, v8]"></my-comp>
                 <my-comp [names]="[v1, v2, v3, v4, v5, v6, v7, v8]"></my-comp>
-              `
+              `,
+        standalone: false,
       })
       class App {
         v1 = 'a';
@@ -247,10 +263,11 @@ describe('components using pure function instructions internally', () => {
       const fixture = TestBed.createComponent(App);
       fixture.detectChanges();
 
-      const myComps =
-          fixture.debugElement.queryAll(By.directive(MyComp)).map(f => f.componentInstance);
+      const myComps = fixture.debugElement
+        .queryAll(By.directive(MyComp))
+        .map((f) => f.componentInstance);
 
-      myComps.forEach(myComp => {
+      myComps.forEach((myComp) => {
         expect(myComp.names).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
       });
 
@@ -294,7 +311,8 @@ describe('components using pure function instructions internally', () => {
         template: `
                 <my-comp [names]="['start', v0, v1, v2, v3, 'modified_' + v4, v5, v6, v7, v8, 'end']">
                 </my-comp>
-              `
+              `,
+        standalone: false,
       })
       class App {
         v0 = 'a';
@@ -316,21 +334,51 @@ describe('components using pure function instructions internally', () => {
       const app = fixture.componentInstance;
 
       expect(myComp.names).toEqual([
-        'start', 'a', 'b', 'c', 'd', 'modified_e', 'f', 'g', 'h', 'i', 'end'
+        'start',
+        'a',
+        'b',
+        'c',
+        'd',
+        'modified_e',
+        'f',
+        'g',
+        'h',
+        'i',
+        'end',
       ]);
 
       app.v0 = 'a1';
       fixture.detectChanges();
 
       expect(myComp.names).toEqual([
-        'start', 'a1', 'b', 'c', 'd', 'modified_e', 'f', 'g', 'h', 'i', 'end'
+        'start',
+        'a1',
+        'b',
+        'c',
+        'd',
+        'modified_e',
+        'f',
+        'g',
+        'h',
+        'i',
+        'end',
       ]);
 
       app.v4 = 'e5';
       fixture.detectChanges();
 
       expect(myComp.names).toEqual([
-        'start', 'a1', 'b', 'c', 'd', 'modified_e5', 'f', 'g', 'h', 'i', 'end'
+        'start',
+        'a1',
+        'b',
+        'c',
+        'd',
+        'modified_e5',
+        'f',
+        'g',
+        'h',
+        'i',
+        'end',
       ]);
     });
   });
@@ -339,6 +387,7 @@ describe('components using pure function instructions internally', () => {
     @Component({
       selector: 'object-comp',
       template: ``,
+      standalone: false,
     })
     class ObjectComp {
       @Input() config: any = [];
@@ -347,6 +396,7 @@ describe('components using pure function instructions internally', () => {
     it('should support an object literal', () => {
       @Component({
         template: '<object-comp [config]="{duration: 500, animation: name}"></object-comp>',
+        standalone: false,
       })
       class App {
         name = 'slide';
@@ -375,7 +425,6 @@ describe('components using pure function instructions internally', () => {
       expect(firstObj).not.toBe(objectComp.config);
     });
 
-
     it('should support expressions nested deeply in object/array literals', () => {
       @Component({
         template: `
@@ -383,6 +432,7 @@ describe('components using pure function instructions internally', () => {
         duration: duration }]}">
         </object-comp>
       `,
+        standalone: false,
       })
       class App {
         name = 'slide';
@@ -399,14 +449,20 @@ describe('components using pure function instructions internally', () => {
 
       expect(objectComp.config).toEqual({
         animation: 'slide',
-        actions: [{opacity: 0, duration: 0}, {opacity: 1, duration: 100}]
+        actions: [
+          {opacity: 0, duration: 0},
+          {opacity: 1, duration: 100},
+        ],
       });
       const firstConfig = objectComp.config;
 
       fixture.detectChanges();
       expect(objectComp.config).toEqual({
         animation: 'slide',
-        actions: [{opacity: 0, duration: 0}, {opacity: 1, duration: 100}]
+        actions: [
+          {opacity: 0, duration: 0},
+          {opacity: 1, duration: 100},
+        ],
       });
       expect(objectComp.config).toBe(firstConfig);
 
@@ -414,7 +470,10 @@ describe('components using pure function instructions internally', () => {
       fixture.detectChanges();
       expect(objectComp.config).toEqual({
         animation: 'slide',
-        actions: [{opacity: 0, duration: 0}, {opacity: 1, duration: 50}]
+        actions: [
+          {opacity: 0, duration: 0},
+          {opacity: 1, duration: 50},
+        ],
       });
       expect(objectComp.config).not.toBe(firstConfig);
 
@@ -422,7 +481,10 @@ describe('components using pure function instructions internally', () => {
       fixture.detectChanges();
       expect(objectComp.config).toEqual({
         animation: 'tap',
-        actions: [{opacity: 0, duration: 0}, {opacity: 1, duration: 50}]
+        actions: [
+          {opacity: 0, duration: 0},
+          {opacity: 1, duration: 50},
+        ],
       });
 
       fixture.componentInstance.name = 'drag';
@@ -430,7 +492,10 @@ describe('components using pure function instructions internally', () => {
       fixture.detectChanges();
       expect(objectComp.config).toEqual({
         animation: 'drag',
-        actions: [{opacity: 0, duration: 0}, {opacity: 1, duration: 500}]
+        actions: [
+          {opacity: 0, duration: 0},
+          {opacity: 1, duration: 500},
+        ],
       });
 
       // The property should not be set if the exp value is the same, so artificially
@@ -446,6 +511,7 @@ describe('components using pure function instructions internally', () => {
         <object-comp *ngFor="let config of configs" [config]="config">
         </object-comp>
       `,
+        standalone: false,
       })
       class App {
         configs = [
@@ -462,8 +528,9 @@ describe('components using pure function instructions internally', () => {
       const fixture = TestBed.createComponent(App);
       fixture.detectChanges();
       const app = fixture.componentInstance;
-      const objectComps =
-          fixture.debugElement.queryAll(By.directive(ObjectComp)).map(f => f.componentInstance);
+      const objectComps = fixture.debugElement
+        .queryAll(By.directive(ObjectComp))
+        .map((f) => f.componentInstance);
 
       expect(objectComps[0].config).toEqual({opacity: 0, duration: 500});
       expect(objectComps[1].config).toEqual({opacity: 1, duration: 600});
@@ -476,7 +543,10 @@ describe('components using pure function instructions internally', () => {
   });
 
   describe('identical literals', () => {
-    @Directive({selector: '[dir]'})
+    @Directive({
+      selector: '[dir]',
+      standalone: false,
+    })
     class Dir {
       @Input('dir') value: any;
     }
@@ -486,7 +556,8 @@ describe('components using pure function instructions internally', () => {
         template: `
           <div [dir]="{}"></div>
           <div [dir]="{}"></div>
-        `
+        `,
+        standalone: false,
       })
       class App {
         @ViewChildren(Dir) directives!: QueryList<Dir>;
@@ -505,7 +576,8 @@ describe('components using pure function instructions internally', () => {
         template: `
           <div [dir]="[]"></div>
           <div [dir]="[]"></div>
-        `
+        `,
+        standalone: false,
       })
       class App {
         @ViewChildren(Dir) directives!: QueryList<Dir>;
@@ -520,7 +592,10 @@ describe('components using pure function instructions internally', () => {
     });
 
     it('should not share object literals across component instances', () => {
-      @Component({template: `<div [dir]="{}"></div>`})
+      @Component({
+        template: `<div [dir]="{}"></div>`,
+        standalone: false,
+      })
       class App {
         @ViewChild(Dir) directive!: Dir;
       }
@@ -532,12 +607,16 @@ describe('components using pure function instructions internally', () => {
       const secondFixture = TestBed.createComponent(App);
       secondFixture.detectChanges();
 
-      expect(firstFixture.componentInstance.directive.value)
-          .not.toBe(secondFixture.componentInstance.directive.value);
+      expect(firstFixture.componentInstance.directive.value).not.toBe(
+        secondFixture.componentInstance.directive.value,
+      );
     });
 
     it('should not share array literals across component instances', () => {
-      @Component({template: `<div [dir]="[]"></div>`})
+      @Component({
+        template: `<div [dir]="[]"></div>`,
+        standalone: false,
+      })
       class App {
         @ViewChild(Dir) directive!: Dir;
       }
@@ -549,8 +628,9 @@ describe('components using pure function instructions internally', () => {
       const secondFixture = TestBed.createComponent(App);
       secondFixture.detectChanges();
 
-      expect(firstFixture.componentInstance.directive.value)
-          .not.toBe(secondFixture.componentInstance.directive.value);
+      expect(firstFixture.componentInstance.directive.value).not.toBe(
+        secondFixture.componentInstance.directive.value,
+      );
     });
 
     it('should not confuse object literals and null inside of a literal', () => {
@@ -558,7 +638,8 @@ describe('components using pure function instructions internally', () => {
         template: `
           <div [dir]="{foo: null}"></div>
           <div [dir]="{foo: {}}"></div>
-        `
+        `,
+        standalone: false,
       })
       class App {
         @ViewChildren(Dir) directives!: QueryList<Dir>;
@@ -567,7 +648,7 @@ describe('components using pure function instructions internally', () => {
       TestBed.configureTestingModule({declarations: [Dir, App]});
       const fixture = TestBed.createComponent(App);
       fixture.detectChanges();
-      const values = fixture.componentInstance.directives.map(directive => directive.value);
+      const values = fixture.componentInstance.directives.map((directive) => directive.value);
 
       expect(values).toEqual([{foo: null}, {foo: {}}]);
     });
@@ -577,7 +658,8 @@ describe('components using pure function instructions internally', () => {
         template: `
           <div [dir]="{foo: null}"></div>
           <div [dir]="{foo: []}"></div>
-        `
+        `,
+        standalone: false,
       })
       class App {
         @ViewChildren(Dir) directives!: QueryList<Dir>;
@@ -586,7 +668,7 @@ describe('components using pure function instructions internally', () => {
       TestBed.configureTestingModule({declarations: [Dir, App]});
       const fixture = TestBed.createComponent(App);
       fixture.detectChanges();
-      const values = fixture.componentInstance.directives.map(directive => directive.value);
+      const values = fixture.componentInstance.directives.map((directive) => directive.value);
 
       expect(values).toEqual([{foo: null}, {foo: []}]);
     });
@@ -596,7 +678,8 @@ describe('components using pure function instructions internally', () => {
         template: `
           <div [dir]="{foo: null}"></div>
           <div [dir]="{foo: getFoo()}"></div>
-        `
+        `,
+        standalone: false,
       })
       class App {
         @ViewChildren(Dir) directives!: QueryList<Dir>;
@@ -608,7 +691,7 @@ describe('components using pure function instructions internally', () => {
       TestBed.configureTestingModule({declarations: [Dir, App]});
       const fixture = TestBed.createComponent(App);
       fixture.detectChanges();
-      const values = fixture.componentInstance.directives.map(directive => directive.value);
+      const values = fixture.componentInstance.directives.map((directive) => directive.value);
 
       expect(values).toEqual([{foo: null}, {foo: 'foo!'}]);
     });

@@ -1,22 +1,29 @@
-load("//tools:defaults.bzl", "jasmine_node_test", "ts_library")
+load("//tools:defaults.bzl", "angular_jasmine_test", "ts_project")
 
-ts_library(
+package(default_visibility = ["//visibility:public"])
+
+ts_project(
     name = "fake_async_lib",
+    testonly = True,
     srcs = [
         "example_spec.ts",
         "fake_async.ts",
     ],
     deps = [
         "//packages/core/testing",
-        "@npm//@types/jasmine",
-        "@npm//@types/node",
     ],
 )
 
-jasmine_node_test(
+angular_jasmine_test(
     name = "test",
-    bootstrap = ["//tools/testing:node_es2015"],
-    deps = [
+    data = [
         ":fake_async_lib",
     ],
+)
+
+filegroup(
+    name = "files_for_docgen",
+    srcs = glob([
+        "**/*.ts",
+    ]),
 )

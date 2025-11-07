@@ -27,7 +27,7 @@ We will produce two compiler entry-points, `ngtsc` and `ngcc`.
 
 `ngcc` (which stands for Angular compatibility compiler) is designed to process code coming from NPM and produce the equivalent Ivy version, as if the code was compiled with `ngtsc`. It will operate given a `node_modules` directory and a set of packages to compile, and will produce an equivalent directory from which the Ivy equivalents of those modules can be read. `ngcc` is a separate script entry point to `@angular/compiler-cli`.
 
-`ngcc` can also be run as part of a code loader (e.g. for Webpack) to transpile packages being read from `node_modules` on-demand.
+`ngcc` can also be run as part of a code loader (e.g. for webpack) to transpile packages being read from `node_modules` on-demand.
 
 ## Detailed Design
 
@@ -92,7 +92,7 @@ GreetComponent.ɵcmp = i0.ɵɵdefineComponent({
             i0.ɵɵelementEnd();
         }
         if (rf & RenderFlags.Update) {
-            i0.ɵɵadvance(1);
+            i0.ɵɵadvance();
             i0.ɵɵtextInterpolate1('Hello ', ctx.name, '!');
         }
     }
@@ -186,10 +186,10 @@ Compilers will also not take Typescript nodes directly as input, but will operat
 
 For example, the input to the `@Component` compiler will be:
 
-* A reference to the class of the component.
-* The template and style resources of the component.
-* The selector of the component.
-* A selector map for the module to which the component belongs.
+- A reference to the class of the component.
+- The template and style resources of the component.
+- The selector of the component.
+- A selector map for the module to which the component belongs.
 
 #### Need for static value resolution
 
@@ -247,7 +247,7 @@ The `TemplateCompiler` can produce a template function from a string without add
 
 #### The selector problem
 
-To interpret the content of a template, the runtime needs to know what component and directives to apply to the element and what pipes are referenced by binding expressions. The list of candidate components, directives and pipes are determined by the `NgModule` in which the component is declared. Since the module and component are in separate source files, mapping which components, directives and pipes referenced is left to the runtime. Unfortunately, this leads to a tree-shaking problem. Since there no direct link between the component and types the component references then all components, directives and pipes declared in the module, and any module imported from the module, must be available at runtime or risk the template failing to be interpreted correctly. Including everything can lead to a very large program which contains many components the application doesn't actually use.
+To interpret the content of a template, the runtime needs to know what component and directives to apply to the element and what pipes are referenced by binding expressions. The list of candidate components, directives, and pipes are determined by the `NgModule` in which the component is declared. Since the module and component are in separate source files, mapping which components, directives, and pipes referenced is left to the runtime. Unfortunately, this leads to a tree-shaking problem. Since there no direct link between the component and types the component references then all components, directives, and pipes declared in the module, and any module imported from the module, must be available at runtime or risk the template failing to be interpreted correctly. Including everything can lead to a very large program which contains many components the application doesn't actually use.
 
 The process of removing unused code is traditionally referred to as "tree-shaking". To determine what codes is necessary to include, a tree-shakers produces the transitive closure of all the code referenced by the bootstrap function. If the bootstrap code references a module then the tree-shaker will include everything imported or declared into the module.
 
@@ -267,8 +267,8 @@ The process of reference inversion is to turn the list of selector targets produ
 
 1. Add all the type declared in the `declarations` field.
 2. For each module that is imported.
-    - Add the exported components, directives, and pipes
-    - Repeat these sub-steps for with each exported module
+   - Add the exported components, directives, and pipes
+   - Repeat these sub-steps for with each exported module
 
 For each type in the list produced above, parse the selector and convert them all into a selector matcher that, given a target, produces the type that matches the selector. This is referred to as the selector scope.
 
@@ -306,9 +306,9 @@ The types of directives can be found using a selector scope as described for ref
 
 When `ngtsc` starts running, it first parses the `tsconfig.json` file and then creates a `ts.Program`. Several things need to happen before the transforms described above can run:
 
-* Metadata must be collected for input source files which contain decorators.
-* Resource files listed in `@Component` decorators must be resolved asynchronously. The CLI, for example, may wish to run Webpack to produce the `.css` input to the `styleUrls` property of an `@Component`.
-* Diagnostics must be run, which creates the `TypeChecker` and touches every node in the program (a decently expensive operation).
+- Metadata must be collected for input source files which contain decorators.
+- Resource files listed in `@Component` decorators must be resolved asynchronously. The CLI, for example, may wish to run webpack to produce the `.css` input to the `styleUrls` property of an `@Component`.
+- Diagnostics must be run, which creates the `TypeChecker` and touches every node in the program (a decently expensive operation).
 
 Because resource loading is asynchronous (and in particular, may actually be concurrent via subprocesses), it's desirable to kick off as much resource loading as possible before doing anything expensive.
 
@@ -316,7 +316,7 @@ Thus, the compiler flow looks like:
 
 1. Create the `ts.Program`
 2. Scan source files for top-level declarations which have trivially detectable `@Component` annotations. This avoids creating the `TypeChecker`.
-    * For each such declaration that has a `templateUrl` or `styleUrls`, kick off resource loading for that URL and add the `Promise` to a queue.
+   - For each such declaration that has a `templateUrl` or `styleUrls`, kick off resource loading for that URL and add the `Promise` to a queue.
 3. Get diagnostics and report any initial error messages. At this point, the `TypeChecker` is primed.
 4. Do a thorough scan for `@Component` annotations, using the `TypeChecker` and the metadata system to resolve any complex expressions.
 5. Wait on all resources to be resolved.
@@ -428,7 +428,7 @@ ngcc_node_modules
 
 #### Operation as a loader
 
-`ngcc` can be called as a standalone entrypoint, but it can also be integrated into the dependency loading operation of a bundler such as Rollup or Webpack. In this mode, the `ngcc` API can be used to read a file originally in `node_modules`. If the file is from a package which has not yet been converted, `ngcc` will convert the package and its dependencies before returning the file's contents.
+`ngcc` can be called as a standalone entrypoint, but it can also be integrated into the dependency loading operation of a bundler such as Rollup or webpack. In this mode, the `ngcc` API can be used to read a file originally in `node_modules`. If the file is from a package which has not yet been converted, `ngcc` will convert the package and its dependencies before returning the file's contents.
 
 In this mode, the on-disk `ngcc_node_modules` directory functions as a cache. If the file being requested has previously been converted, its contents will be read from `ngcc_node_modules`.
 
@@ -441,9 +441,9 @@ Compiling a package in `ngcc` involves the following steps:
 1. Parse the JS files of the package with the Typescript parser.
 2. Invoke the `StaticReflector` system from the legacy `@angular/compiler` to parse the `.metadata.json` files.
 3. Run through each Angular decorator in the Ivy system and compile:
-    1. Use the JS AST plus the information from the `StaticReflector` to construct the input to the annotation's Compiler.
-    2. Run the annotation's Compiler which will produce a partial class and its type declaration.
-    3. Extract the static property definition from the partial class.
+   1. Use the JS AST plus the information from the `StaticReflector` to construct the input to the annotation's Compiler.
+   2. Run the annotation's Compiler which will produce a partial class and its type declaration.
+   3. Extract the static property definition from the partial class.
 4. Combine the compiler outputs with the JS AST to produce the resulting `.js` and `.d.ts` files, and write them to disk.
 5. Copy over all other files.
 
@@ -451,8 +451,8 @@ Compiling a package in `ngcc` involves the following steps:
 
 At first glance it is desirable for each Compiler's output to be patched into the AST for the modules being compiled, and then to generate the resulting JS code and sourcemaps using Typescript's emit on the AST. This is undesirable for several reasons:
 
-* The round-trip through the Typescript parser and emitter might subtly change the input JS code - dropping comments, reformatting code, etc. This is not ideal, as users expect the input code to remain as unchanged as possible.
-* It isn't possible in Typescript to directly emit without going through any of Typescript's own transformations. This may cause expressions to be reformatted, code to be downleveled, and requires configuration of an output module system into which the code will be transformed.
+- The round-trip through the Typescript parser and emitter might subtly change the input JS code - dropping comments, reformatting code, etc. This is not ideal, as users expect the input code to remain as unchanged as possible.
+- It isn't possible in Typescript to directly emit without going through any of Typescript's own transformations. This may cause expressions to be reformatted, code to be downleveled, and requires configuration of an output module system into which the code will be transformed.
 
 For these reasons, `ngcc` will not use the TS emitter to produce the final patched `.js` files. Instead, the JS text will be manipulated directly, with the help of the `magic-string` or similar library to ensure the changes are reflected in the output sourcemaps. The AST which is parsed from the JS files contains position information of all the types in the JS source, and this information can be used to determine the correct insertion points for the Ivy static fields.
 
@@ -460,7 +460,7 @@ Similarly, the `.d.ts` files will be parsed by the TS parser, and the informatio
 
 ##### Module systems
 
-The Angular Package Format includes more than one copy of a package's code. At minimum, it includes one ESM5 (ES5 code in ES Modules) entrypoint, one ES2015 entrypoint, and one UMD entrypoint. Some libraries _not_ following the package format may still work in the Angular CLI, if they export code that can be loaded by Webpack.
+The Angular Package Format includes more than one copy of a package's code. At minimum, it includes one ESM5 (ES5 code in ES Modules) entrypoint, one ES2015 entrypoint, and one UMD entrypoint. Some libraries _not_ following the package format may still work in the Angular CLI, if they export code that can be loaded by webpack.
 
 Thus, `ngcc` will have two approaches for dealing with packages on NPM.
 

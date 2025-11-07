@@ -10,7 +10,6 @@ OtherCmp.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "0.0
 i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: OtherCmp, decorators: [{
             type: Component,
             args: [{
-                    standalone: true,
                     selector: 'other-cmp',
                     template: '',
                 }]
@@ -22,7 +21,6 @@ StandaloneCmp.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version:
 i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: StandaloneCmp, decorators: [{
             type: Component,
             args: [{
-                    standalone: true,
                     template: '<other-cmp></other-cmp>',
                     imports: [OtherCmp],
                 }]
@@ -34,11 +32,11 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDE
 import * as i0 from "@angular/core";
 export declare class OtherCmp {
     static ɵfac: i0.ɵɵFactoryDeclaration<OtherCmp, never>;
-    static ɵcmp: i0.ɵɵComponentDeclaration<OtherCmp, "other-cmp", never, {}, {}, never, never, true>;
+    static ɵcmp: i0.ɵɵComponentDeclaration<OtherCmp, "other-cmp", never, {}, {}, never, never, true, never>;
 }
 export declare class StandaloneCmp {
     static ɵfac: i0.ɵɵFactoryDeclaration<StandaloneCmp, never>;
-    static ɵcmp: i0.ɵɵComponentDeclaration<StandaloneCmp, "ng-component", never, {}, {}, never, never, true>;
+    static ɵcmp: i0.ɵɵComponentDeclaration<StandaloneCmp, "ng-component", never, {}, {}, never, never, true, never>;
 }
 
 /****************************************************************************************************
@@ -52,9 +50,7 @@ StandaloneDir.ɵfac = i0.ɵɵngDeclareFactory({ minVersion: "12.0.0", version: "
 StandaloneDir.ɵdir = i0.ɵɵngDeclareDirective({ minVersion: "14.0.0", version: "0.0.0-PLACEHOLDER", type: StandaloneDir, isStandalone: true, ngImport: i0 });
 i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: StandaloneDir, decorators: [{
             type: Directive,
-            args: [{
-                    standalone: true,
-                }]
+            args: [{}]
         }] });
 
 /****************************************************************************************************
@@ -63,7 +59,7 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDE
 import * as i0 from "@angular/core";
 export declare class StandaloneDir {
     static ɵfac: i0.ɵɵFactoryDeclaration<StandaloneDir, never>;
-    static ɵdir: i0.ɵɵDirectiveDeclaration<StandaloneDir, never, never, {}, {}, never, never, true>;
+    static ɵdir: i0.ɵɵDirectiveDeclaration<StandaloneDir, never, never, {}, {}, never, never, true, never>;
 }
 
 /****************************************************************************************************
@@ -79,7 +75,6 @@ StandalonePipe.ɵpipe = i0.ɵɵngDeclarePipe({ minVersion: "14.0.0", version: "0
 i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: StandalonePipe, decorators: [{
             type: Pipe,
             args: [{
-                    standalone: true,
                     name: 'stpipe',
                 }]
         }] });
@@ -102,19 +97,25 @@ import * as i0 from "@angular/core";
 export class NotStandaloneDir {
 }
 NotStandaloneDir.ɵfac = i0.ɵɵngDeclareFactory({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: NotStandaloneDir, deps: [], target: i0.ɵɵFactoryTarget.Directive });
-NotStandaloneDir.ɵdir = i0.ɵɵngDeclareDirective({ minVersion: "14.0.0", version: "0.0.0-PLACEHOLDER", type: NotStandaloneDir, selector: "[not-standalone]", ngImport: i0 });
+NotStandaloneDir.ɵdir = i0.ɵɵngDeclareDirective({ minVersion: "14.0.0", version: "0.0.0-PLACEHOLDER", type: NotStandaloneDir, isStandalone: false, selector: "[not-standalone]", ngImport: i0 });
 i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: NotStandaloneDir, decorators: [{
             type: Directive,
-            args: [{ selector: '[not-standalone]' }]
+            args: [{
+                    selector: '[not-standalone]',
+                    standalone: false
+                }]
         }] });
 export class NotStandalonePipe {
     transform(value) { }
 }
 NotStandalonePipe.ɵfac = i0.ɵɵngDeclareFactory({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: NotStandalonePipe, deps: [], target: i0.ɵɵFactoryTarget.Pipe });
-NotStandalonePipe.ɵpipe = i0.ɵɵngDeclarePipe({ minVersion: "14.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: NotStandalonePipe, name: "nspipe" });
+NotStandalonePipe.ɵpipe = i0.ɵɵngDeclarePipe({ minVersion: "14.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: NotStandalonePipe, isStandalone: false, name: "nspipe" });
 i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: NotStandalonePipe, decorators: [{
             type: Pipe,
-            args: [{ name: 'nspipe' }]
+            args: [{
+                    name: 'nspipe',
+                    standalone: false
+                }]
         }] });
 export class NotStandaloneStuffModule {
 }
@@ -135,7 +136,6 @@ IndirectDir.ɵdir = i0.ɵɵngDeclareDirective({ minVersion: "14.0.0", version: "
 i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: IndirectDir, decorators: [{
             type: Directive,
             args: [{
-                    standalone: true,
                     selector: '[indirect]',
                 }]
         }] });
@@ -147,7 +147,6 @@ IndirectPipe.ɵpipe = i0.ɵɵngDeclarePipe({ minVersion: "14.0.0", version: "0.0
 i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: IndirectPipe, decorators: [{
             type: Pipe,
             args: [{
-                    standalone: true,
                     name: 'indirectpipe',
                 }]
         }] });
@@ -170,7 +169,6 @@ DirectDir.ɵdir = i0.ɵɵngDeclareDirective({ minVersion: "14.0.0", version: "0.
 i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: DirectDir, decorators: [{
             type: Directive,
             args: [{
-                    standalone: true,
                     selector: '[direct]',
                 }]
         }] });
@@ -182,7 +180,6 @@ DirectPipe.ɵpipe = i0.ɵɵngDeclarePipe({ minVersion: "14.0.0", version: "0.0.0
 i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: DirectPipe, decorators: [{
             type: Pipe,
             args: [{
-                    standalone: true,
                     name: 'directpipe',
                 }]
         }] });
@@ -196,11 +193,10 @@ TestCmp.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "0.0.
     <p>Reference some non-standalone things:<span not-standalone>{{data | nspipe}}</span></p>
     <p>Reference some indirect standalone things:<span indirect>{{data | indirectpipe}}</span></p>
     <p>Reference some standalone things directly:<span direct>{{data | directpipe}}</span></p>
-  `, isInline: true, dependencies: [{ kind: "ngmodule", type: SomeModule }, { kind: "directive", type: NotStandaloneDir, selector: "[not-standalone]" }, { kind: "directive", type: IndirectDir, selector: "[indirect]" }, { kind: "pipe", type: NotStandalonePipe, name: "nspipe" }, { kind: "pipe", type: IndirectPipe, name: "indirectpipe" }, { kind: "directive", type: DirectDir, selector: "[direct]" }, { kind: "pipe", type: DirectPipe, name: "directpipe" }] });
+  `, isInline: true, dependencies: [{ kind: "ngmodule", type: SomeModule }, { kind: "directive", type: NotStandaloneDir, selector: "[not-standalone]" }, { kind: "directive", type: IndirectDir, selector: "[indirect]" }, { kind: "directive", type: DirectDir, selector: "[direct]" }, { kind: "pipe", type: NotStandalonePipe, name: "nspipe" }, { kind: "pipe", type: IndirectPipe, name: "indirectpipe" }, { kind: "pipe", type: DirectPipe, name: "directpipe" }] });
 i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: TestCmp, decorators: [{
             type: Component,
             args: [{
-                    standalone: true,
                     selector: 'test-cmp',
                     template: `
     <p>Reference some non-standalone things:<span not-standalone>{{data | nspipe}}</span></p>
@@ -217,7 +213,7 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDE
 import * as i0 from "@angular/core";
 export declare class NotStandaloneDir {
     static ɵfac: i0.ɵɵFactoryDeclaration<NotStandaloneDir, never>;
-    static ɵdir: i0.ɵɵDirectiveDeclaration<NotStandaloneDir, "[not-standalone]", never, {}, {}, never, never, false>;
+    static ɵdir: i0.ɵɵDirectiveDeclaration<NotStandaloneDir, "[not-standalone]", never, {}, {}, never, never, false, never>;
 }
 export declare class NotStandalonePipe {
     transform(value: any): any;
@@ -231,7 +227,7 @@ export declare class NotStandaloneStuffModule {
 }
 export declare class IndirectDir {
     static ɵfac: i0.ɵɵFactoryDeclaration<IndirectDir, never>;
-    static ɵdir: i0.ɵɵDirectiveDeclaration<IndirectDir, "[indirect]", never, {}, {}, never, never, true>;
+    static ɵdir: i0.ɵɵDirectiveDeclaration<IndirectDir, "[indirect]", never, {}, {}, never, never, true, never>;
 }
 export declare class IndirectPipe {
     transform(value: any): any;
@@ -245,7 +241,7 @@ export declare class SomeModule {
 }
 export declare class DirectDir {
     static ɵfac: i0.ɵɵFactoryDeclaration<DirectDir, never>;
-    static ɵdir: i0.ɵɵDirectiveDeclaration<DirectDir, "[direct]", never, {}, {}, never, never, true>;
+    static ɵdir: i0.ɵɵDirectiveDeclaration<DirectDir, "[direct]", never, {}, {}, never, never, true, never>;
 }
 export declare class DirectPipe {
     transform(value: any): any;
@@ -255,7 +251,7 @@ export declare class DirectPipe {
 export declare class TestCmp {
     data: boolean;
     static ɵfac: i0.ɵɵFactoryDeclaration<TestCmp, never>;
-    static ɵcmp: i0.ɵɵComponentDeclaration<TestCmp, "test-cmp", never, {}, {}, never, never, true>;
+    static ɵcmp: i0.ɵɵComponentDeclaration<TestCmp, "test-cmp", never, {}, {}, never, never, true, never>;
 }
 
 /****************************************************************************************************
@@ -270,7 +266,6 @@ RecursiveComponent.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", ver
 i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: RecursiveComponent, decorators: [{
             type: Component,
             args: [{
-                    standalone: true,
                     selector: 'recursive-cmp',
                     // Simple recursion. Note: no `imports`.
                     template: '<recursive-cmp></recursive-cmp>',
@@ -283,7 +278,7 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDE
 import * as i0 from "@angular/core";
 export declare class RecursiveComponent {
     static ɵfac: i0.ɵɵFactoryDeclaration<RecursiveComponent, never>;
-    static ɵcmp: i0.ɵɵComponentDeclaration<RecursiveComponent, "recursive-cmp", never, {}, {}, never, never, true>;
+    static ɵcmp: i0.ɵɵComponentDeclaration<RecursiveComponent, "recursive-cmp", never, {}, {}, never, never, true, never>;
 }
 
 /****************************************************************************************************
@@ -298,7 +293,6 @@ StandaloneCmp.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version:
 i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: StandaloneCmp, decorators: [{
             type: Component,
             args: [{
-                    standalone: true,
                     selector: 'standalone-cmp',
                     template: '',
                 }]
@@ -309,13 +303,13 @@ StandaloneDir.ɵfac = i0.ɵɵngDeclareFactory({ minVersion: "12.0.0", version: "
 StandaloneDir.ɵdir = i0.ɵɵngDeclareDirective({ minVersion: "14.0.0", version: "0.0.0-PLACEHOLDER", type: StandaloneDir, isStandalone: true, ngImport: i0 });
 i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: StandaloneDir, decorators: [{
             type: Directive,
-            args: [{ standalone: true }]
+            args: [{}]
         }] });
 export class Module {
 }
 Module.ɵfac = i0.ɵɵngDeclareFactory({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: Module, deps: [], target: i0.ɵɵFactoryTarget.NgModule });
 Module.ɵmod = i0.ɵɵngDeclareNgModule({ minVersion: "14.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: Module, imports: [StandaloneCmp, StandaloneDir] });
-Module.ɵinj = i0.ɵɵngDeclareInjector({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: Module, imports: [StandaloneCmp] });
+Module.ɵinj = i0.ɵɵngDeclareInjector({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: Module });
 i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: Module, decorators: [{
             type: NgModule,
             args: [{
@@ -329,11 +323,11 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDE
 import * as i0 from "@angular/core";
 export declare class StandaloneCmp {
     static ɵfac: i0.ɵɵFactoryDeclaration<StandaloneCmp, never>;
-    static ɵcmp: i0.ɵɵComponentDeclaration<StandaloneCmp, "standalone-cmp", never, {}, {}, never, never, true>;
+    static ɵcmp: i0.ɵɵComponentDeclaration<StandaloneCmp, "standalone-cmp", never, {}, {}, never, never, true, never>;
 }
 export declare class StandaloneDir {
     static ɵfac: i0.ɵɵFactoryDeclaration<StandaloneDir, never>;
-    static ɵdir: i0.ɵɵDirectiveDeclaration<StandaloneDir, never, never, {}, {}, never, never, true>;
+    static ɵdir: i0.ɵɵDirectiveDeclaration<StandaloneDir, never, never, {}, {}, never, never, true, never>;
 }
 export declare class Module {
     static ɵfac: i0.ɵɵFactoryDeclaration<Module, never>;
@@ -349,12 +343,11 @@ import * as i0 from "@angular/core";
 export class TestComponent {
 }
 TestComponent.ɵfac = i0.ɵɵngDeclareFactory({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: TestComponent, deps: [], target: i0.ɵɵFactoryTarget.Component });
-TestComponent.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "0.0.0-PLACEHOLDER", type: TestComponent, isStandalone: true, selector: "test", ngImport: i0, template: '<other-standalone></other-standalone>', isInline: true, dependencies: [{ kind: "component", type: i0.forwardRef(function () { return StandaloneComponent; }), selector: "other-standalone" }] });
+TestComponent.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "0.0.0-PLACEHOLDER", type: TestComponent, isStandalone: true, selector: "test", ngImport: i0, template: '<other-standalone></other-standalone>', isInline: true, dependencies: [{ kind: "component", type: i0.forwardRef(() => StandaloneComponent), selector: "other-standalone" }] });
 i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDER", ngImport: i0, type: TestComponent, decorators: [{
             type: Component,
             args: [{
                     selector: 'test',
-                    standalone: true,
                     imports: [forwardRef(() => StandaloneComponent)],
                     template: '<other-standalone></other-standalone>',
                 }]
@@ -367,7 +360,6 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDE
             type: Component,
             args: [{
                     selector: 'other-standalone',
-                    standalone: true,
                     template: '',
                 }]
         }] });
@@ -378,10 +370,10 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "0.0.0-PLACEHOLDE
 import * as i0 from "@angular/core";
 export declare class TestComponent {
     static ɵfac: i0.ɵɵFactoryDeclaration<TestComponent, never>;
-    static ɵcmp: i0.ɵɵComponentDeclaration<TestComponent, "test", never, {}, {}, never, never, true>;
+    static ɵcmp: i0.ɵɵComponentDeclaration<TestComponent, "test", never, {}, {}, never, never, true, never>;
 }
 export declare class StandaloneComponent {
     static ɵfac: i0.ɵɵFactoryDeclaration<StandaloneComponent, never>;
-    static ɵcmp: i0.ɵɵComponentDeclaration<StandaloneComponent, "other-standalone", never, {}, {}, never, never, true>;
+    static ɵcmp: i0.ɵɵComponentDeclaration<StandaloneComponent, "other-standalone", never, {}, {}, never, never, true, never>;
 }
 

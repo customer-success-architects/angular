@@ -3,14 +3,18 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
-import {Directive, ElementRef, forwardRef, Renderer2} from '@angular/core';
+import {Directive, forwardRef, Provider} from '@angular/core';
 
-import {BuiltInControlValueAccessor, ControlValueAccessor, NG_VALUE_ACCESSOR} from './control_value_accessor';
+import {
+  BuiltInControlValueAccessor,
+  ControlValueAccessor,
+  NG_VALUE_ACCESSOR,
+} from './control_value_accessor';
 
-export const CHECKBOX_VALUE_ACCESSOR: any = {
+const CHECKBOX_VALUE_ACCESSOR: Provider = {
   provide: NG_VALUE_ACCESSOR,
   useExisting: forwardRef(() => CheckboxControlValueAccessor),
   multi: true,
@@ -31,7 +35,7 @@ export const CHECKBOX_VALUE_ACCESSOR: any = {
  * const rememberLoginControl = new FormControl();
  * ```
  *
- * ```
+ * ```html
  * <input type="checkbox" [formControl]="rememberLoginControl">
  * ```
  *
@@ -41,15 +45,18 @@ export const CHECKBOX_VALUE_ACCESSOR: any = {
  */
 @Directive({
   selector:
-      'input[type=checkbox][formControlName],input[type=checkbox][formControl],input[type=checkbox][ngModel]',
-  host: {'(change)': 'onChange($event.target.checked)', '(blur)': 'onTouched()'},
-  providers: [CHECKBOX_VALUE_ACCESSOR]
+    'input[type=checkbox][formControlName],input[type=checkbox][formControl],input[type=checkbox][ngModel]',
+  host: {'(change)': 'onChange($any($event.target).checked)', '(blur)': 'onTouched()'},
+  providers: [CHECKBOX_VALUE_ACCESSOR],
+  standalone: false,
 })
-export class CheckboxControlValueAccessor extends BuiltInControlValueAccessor implements
-    ControlValueAccessor {
+export class CheckboxControlValueAccessor
+  extends BuiltInControlValueAccessor
+  implements ControlValueAccessor
+{
   /**
    * Sets the "checked" property on the input element.
-   * @nodoc
+   * @docs-private
    */
   writeValue(value: any): void {
     this.setProperty('checked', value);

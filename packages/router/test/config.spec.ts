@@ -3,41 +3,46 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
+import {Routes} from '../src';
 import {PRIMARY_OUTLET} from '../src/shared';
 import {validateConfig} from '../src/utils/config';
 
 describe('config', () => {
   describe('validateConfig', () => {
     it('should not throw when no errors', () => {
-      expect(
-          () => validateConfig([{path: 'a', redirectTo: 'b'}, {path: 'b', component: ComponentA}]))
-          .not.toThrow();
+      expect(() =>
+        validateConfig([
+          {path: 'a', redirectTo: 'b'},
+          {path: 'b', component: ComponentA},
+        ]),
+      ).not.toThrow();
     });
 
     it('should not throw when a matcher is provided', () => {
-      expect(() => validateConfig([{matcher: <any>'someFunc', component: ComponentA}]))
-          .not.toThrow();
+      expect(() => validateConfig([{matcher: () => null, component: ComponentA}])).not.toThrow();
     });
 
     it('should throw for undefined route', () => {
       expect(() => {
-        validateConfig(
-            [{path: 'a', component: ComponentA}, , {path: 'b', component: ComponentB}] as any);
+        validateConfig([
+          {path: 'a', component: ComponentA},
+          ,
+          {path: 'b', component: ComponentB},
+        ] as Routes);
       }).toThrowError(/Invalid configuration of route ''/);
     });
 
     it('should throw for undefined route in children', () => {
       expect(() => {
-        validateConfig([{
-                         path: 'a',
-                         children: [
-                           {path: 'b', component: ComponentB},
-                           ,
-                         ]
-                       }] as any);
+        validateConfig([
+          {
+            path: 'a',
+            children: [{path: 'b', component: ComponentB}, ,],
+          },
+        ] as Routes);
       }).toThrowError(/Invalid configuration of route 'a'/);
     });
 
@@ -45,15 +50,19 @@ describe('config', () => {
       expect(() => {
         validateConfig([
           {path: 'a', component: ComponentA},
-          [{path: 'b', component: ComponentB}, {path: 'c', component: ComponentC}] as any
-        ]);
+          [
+            {path: 'b', component: ComponentB},
+            {path: 'c', component: ComponentC},
+          ],
+        ] as Routes);
       }).toThrowError();
     });
 
     it('should throw when redirectTo and children are used together', () => {
       expect(() => {
-        validateConfig(
-            [{path: 'a', redirectTo: 'b', children: [{path: 'b', component: ComponentA}]}]);
+        validateConfig([
+          {path: 'a', redirectTo: 'b', children: [{path: 'b', component: ComponentA}]},
+        ]);
       }).toThrowError();
     });
 
@@ -62,11 +71,11 @@ describe('config', () => {
     });
 
     it('should properly report deeply nested path', () => {
-      expect(
-          () => validateConfig([
-            {path: 'a', children: [{path: 'b', children: [{path: 'c', children: [{path: 'd'}]}]}]}
-          ]))
-          .toThrowError();
+      expect(() =>
+        validateConfig([
+          {path: 'a', children: [{path: 'b', children: [{path: 'c', children: [{path: 'd'}]}]}]},
+        ]),
+      ).toThrowError();
     });
 
     it('should throw when redirectTo and loadChildren are used together', () => {
@@ -84,9 +93,11 @@ describe('config', () => {
     it('should throw when component and redirectTo are used together', () => {
       expect(() => {
         validateConfig([{path: 'a', component: ComponentA, redirectTo: 'b'}]);
-      })
-          .toThrowError(new RegExp(
-              `Invalid configuration of route 'a': redirectTo and component/loadComponent cannot be used together`));
+      }).toThrowError(
+        new RegExp(
+          `Invalid configuration of route 'a': redirectTo and component/loadComponent cannot be used together`,
+        ),
+      );
     });
 
     it('should throw when redirectTo and loadComponent are used together', () => {
@@ -109,13 +120,13 @@ describe('config', () => {
 
     it('should throw when path and matcher are used together', () => {
       expect(() => {
-        validateConfig([{path: 'a', matcher: <any>'someFunc', children: []}]);
+        validateConfig([{path: 'a', matcher: () => null, children: []}]);
       }).toThrowError();
     });
 
     it('should throw when path and matcher are missing', () => {
       expect(() => {
-        validateConfig([{component: null, redirectTo: 'b'}] as any);
+        validateConfig([{redirectTo: 'b'}]);
       }).toThrowError();
     });
 
@@ -127,26 +138,26 @@ describe('config', () => {
 
     it('should throw when path starts with a slash', () => {
       expect(() => {
-        validateConfig([<any>{path: '/a', redirectTo: 'b'}]);
+        validateConfig([{path: '/a', redirectTo: 'b'}]);
       }).toThrowError();
     });
 
-    it('should throw when emptyPath is used with redirectTo without explicitly providing matching',
-       () => {
-         expect(() => {
-           validateConfig([<any>{path: '', redirectTo: 'b'}]);
-         }).toThrowError(/Invalid configuration of route '{path: "", redirectTo: "b"}'/);
-       });
+    it('should throw when emptyPath is used with redirectTo without explicitly providing matching', () => {
+      expect(() => {
+        validateConfig([{path: '', redirectTo: 'b'}]);
+      }).toThrowError(/Invalid configuration of route '{path: "", redirectTo: "b"}'/);
+    });
 
     it('should throw when path/outlet combination is invalid', () => {
       expect(() => {
         validateConfig([{path: 'a', outlet: 'aux'}]);
-      })
-          .toThrowError(
-              /Invalid configuration of route 'a': a componentless route without children or loadChildren cannot have a named outlet set/);
+      }).toThrowError(
+        /Invalid configuration of route 'a': a componentless route without children or loadChildren cannot have a named outlet set/,
+      );
       expect(() => validateConfig([{path: 'a', outlet: '', children: []}])).not.toThrow();
-      expect(() => validateConfig([{path: 'a', outlet: PRIMARY_OUTLET, children: []}]))
-          .not.toThrow();
+      expect(() =>
+        validateConfig([{path: 'a', outlet: PRIMARY_OUTLET, children: []}]),
+      ).not.toThrow();
     });
 
     it('should not throw when path/outlet combination is valid', () => {
@@ -155,6 +166,12 @@ describe('config', () => {
       }).not.toThrow();
       expect(() => {
         validateConfig([{path: 'a', outlet: 'aux', loadChildren: jasmine.createSpy('child')}]);
+      }).not.toThrow();
+    });
+
+    it('should not throw when outlet has redirectTo', () => {
+      expect(() => {
+        validateConfig([{path: '', pathMatch: 'prefix', outlet: 'aux', redirectTo: 'main'}]);
       }).not.toThrow();
     });
   });

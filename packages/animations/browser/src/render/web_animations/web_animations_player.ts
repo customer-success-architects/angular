@@ -3,14 +3,12 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
-import {AnimationPlayer, ɵStyleDataMap} from '@angular/animations';
+import {AnimationPlayer, ɵStyleDataMap} from '../../../../src/animations';
 
 import {computeStyle} from '../../util';
 import {SpecialCasedStyles} from '../special_cased_styles';
-
-import {DOMAnimation} from './dom_animation';
 
 export class WebAnimationsPlayer implements AnimationPlayer {
   private _onDoneFns: Function[] = [];
@@ -30,17 +28,18 @@ export class WebAnimationsPlayer implements AnimationPlayer {
   private _originalOnDoneFns: Function[] = [];
   private _originalOnStartFns: Function[] = [];
 
-  // TODO(issue/24571): remove '!'.
-  public readonly domPlayer!: DOMAnimation;
+  public domPlayer: Animation | null = null;
   public time = 0;
 
-  public parentPlayer: AnimationPlayer|null = null;
+  public parentPlayer: AnimationPlayer | null = null;
   public currentSnapshot: ɵStyleDataMap = new Map();
 
   constructor(
-      public element: any, public keyframes: Array<ɵStyleDataMap>,
-      public options: {[key: string]: string|number},
-      private _specialStyles?: SpecialCasedStyles|null) {
+    public element: any,
+    public keyframes: Array<ɵStyleDataMap>,
+    public options: {[key: string]: string | number},
+    private _specialStyles?: SpecialCasedStyles | null,
+  ) {
     this._duration = <number>options['duration'];
     this._delay = <number>options['delay'] || 0;
     this.time = this._duration + this._delay;
@@ -49,25 +48,41 @@ export class WebAnimationsPlayer implements AnimationPlayer {
   private _onFinish() {
     if (!this._finished) {
       this._finished = true;
-      this._onDoneFns.forEach(fn => fn());
+      this._onDoneFns.forEach((fn) => fn());
       this._onDoneFns = [];
     }
   }
 
   init(): void {
-    this._buildPlayer();
+    if (!this._buildPlayer()) {
+      return;
+    }
     this._preparePlayerBeforeStart();
   }
 
-  private _buildPlayer(): void {
-    if (this._initialized) return;
+  private _buildPlayer(): Animation | null {
+    if (this._initialized) return this.domPlayer;
     this._initialized = true;
 
     const keyframes = this.keyframes;
-    (this as {domPlayer: DOMAnimation}).domPlayer =
-        this._triggerWebAnimation(this.element, keyframes, this.options);
+
+    const animation = this._triggerWebAnimation(this.element, keyframes, this.options);
+    if (!animation) {
+      this._onFinish();
+      return null;
+    }
+
+    this.domPlayer = animation;
     this._finalKeyframe = keyframes.length ? keyframes[keyframes.length - 1] : new Map();
-    this.domPlayer.addEventListener('finish', () => this._onFinish());
+    const onFinish = () => this._onFinish();
+    animation.addEventListener('finish', onFinish);
+    this.onDestroy(() => {
+      // We must remove the `finish` event listener once an animation has completed all its
+      // iterations. This action is necessary to prevent a memory leak since the listener captures
+      // `this`, creating a closure that prevents `this` from being garbage collected.
+      animation.removeEventListener('finish', onFinish);
+    });
+    return animation;
   }
 
   private _preparePlayerBeforeStart() {
@@ -75,23 +90,33 @@ export class WebAnimationsPlayer implements AnimationPlayer {
     if (this._delay) {
       this._resetDomPlayerState();
     } else {
-      this.domPlayer.pause();
+      this.domPlayer?.pause();
     }
   }
 
   private _convertKeyframesToObject(keyframes: Array<ɵStyleDataMap>): any[] {
     const kfs: any[] = [];
-    keyframes.forEach(frame => {
+    keyframes.forEach((frame) => {
       kfs.push(Object.fromEntries(frame));
     });
     return kfs;
   }
 
   /** @internal */
-  _triggerWebAnimation(element: any, keyframes: Array<ɵStyleDataMap>, options: any): DOMAnimation {
-    // jscompiler doesn't seem to know animate is a native property because it's not fully
-    // supported yet across common browsers (we polyfill it for Edge/Safari) [CL #143630929]
-    return element['animate'](this._convertKeyframesToObject(keyframes), options) as DOMAnimation;
+  _triggerWebAnimation(
+    element: HTMLElement,
+    keyframes: Array<ɵStyleDataMap>,
+    options: any,
+  ): Animation | null {
+    const keyframesObject = this._convertKeyframesToObject(keyframes);
+
+    // Account for `Element.animate` throwing an exception (Firefox) or returning null (Chromium) in certain
+    // conditions. See https://github.com/angular/angular/issues/64486
+    try {
+      return element.animate(keyframesObject, options);
+    } catch {
+      return null;
+    }
   }
 
   onStart(fn: () => void): void {
@@ -109,25 +134,29 @@ export class WebAnimationsPlayer implements AnimationPlayer {
   }
 
   play(): void {
-    this._buildPlayer();
+    const player = this._buildPlayer();
+    if (!player) {
+      return;
+    }
     if (!this.hasStarted()) {
-      this._onStartFns.forEach(fn => fn());
+      this._onStartFns.forEach((fn) => fn());
       this._onStartFns = [];
       this._started = true;
       if (this._specialStyles) {
         this._specialStyles.start();
       }
     }
-    this.domPlayer.play();
+    player.play();
   }
 
   pause(): void {
     this.init();
-    this.domPlayer.pause();
+    this.domPlayer?.pause();
   }
 
   finish(): void {
     this.init();
+    if (!this.domPlayer) return;
     if (this._specialStyles) {
       this._specialStyles.finish();
     }
@@ -145,9 +174,7 @@ export class WebAnimationsPlayer implements AnimationPlayer {
   }
 
   private _resetDomPlayerState() {
-    if (this.domPlayer) {
-      this.domPlayer.cancel();
-    }
+    this.domPlayer?.cancel();
   }
 
   restart(): void {
@@ -167,20 +194,26 @@ export class WebAnimationsPlayer implements AnimationPlayer {
       if (this._specialStyles) {
         this._specialStyles.destroy();
       }
-      this._onDestroyFns.forEach(fn => fn());
+      this._onDestroyFns.forEach((fn) => fn());
       this._onDestroyFns = [];
     }
   }
 
   setPosition(p: number): void {
-    if (this.domPlayer === undefined) {
+    if (!this.domPlayer) {
       this.init();
     }
-    this.domPlayer.currentTime = p * this.time;
+    if (this.domPlayer) {
+      this.domPlayer.currentTime = p * this.time;
+    }
   }
 
   getPosition(): number {
-    return this.domPlayer.currentTime / this.time;
+    if (!this.domPlayer) {
+      return this._initialized ? 1 : 0;
+    }
+    // tsc is complaining with TS2362 without the conversion to number
+    return +(this.domPlayer.currentTime ?? 0) / this.time;
   }
 
   get totalTime(): number {
@@ -207,7 +240,7 @@ export class WebAnimationsPlayer implements AnimationPlayer {
   /** @internal */
   triggerCallback(phaseName: string): void {
     const methods = phaseName === 'start' ? this._onStartFns : this._onDoneFns;
-    methods.forEach(fn => fn());
+    methods.forEach((fn) => fn());
     methods.length = 0;
   }
 }

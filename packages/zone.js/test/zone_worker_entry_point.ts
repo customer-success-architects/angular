@@ -3,15 +3,14 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
 // Setup tests for Zone without microtask support
 System.config({defaultJSExtensions: true});
 System.import('../lib/browser/api-util').then(() => {
-  System.import('../lib/browser/browser-legacy').then(() => {
-    System.import('../lib/browser/browser').then(() => {
-      const _global = typeof window !== 'undefined' ? window : self;
+  System.import('../lib/browser/browser').then(
+    () => {
       Zone.current.fork({name: 'webworker'}).run(() => {
         const websocket = new WebSocket('ws://localhost:8001');
         websocket.addEventListener('open', () => {
@@ -26,6 +25,7 @@ System.import('../lib/browser/api-util').then(() => {
           websocket.send('text');
         });
       });
-    }, (e: any) => (<any>self).postMessage(`error ${e.message}`));
-  });
+    },
+    (e: any) => (<any>self).postMessage(`error ${e.message}`),
+  );
 });

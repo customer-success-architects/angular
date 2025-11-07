@@ -3,14 +3,12 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
-import {Events, MessageBus, Parameters} from 'protocol';
+import {Events, MessageBus, Parameters} from '../projects/protocol';
 
 import {IFrameMessageBus} from './iframe-message-bus';
-
-type AnyEventCallback<Ev> = <E extends keyof Ev>(topic: E, args: Parameters<Ev[E]>) => void;
 
 const runOutsideAngular = (f: () => any) => {
   const w = window as any;
@@ -22,44 +20,36 @@ const runOutsideAngular = (f: () => any) => {
 };
 
 export class ZoneUnawareIFrameMessageBus extends MessageBus<Events> {
-  private _delegate: IFrameMessageBus;
+  private delegate: IFrameMessageBus;
 
   constructor(source: string, destination: string, docWindow: () => Window) {
     super();
-    this._delegate = new IFrameMessageBus(source, destination, docWindow);
+    this.delegate = new IFrameMessageBus(source, destination, docWindow);
   }
 
-  onAny(cb: AnyEventCallback<Events>): any {
+  override on<E extends keyof Events>(topic: E, cb: Events[E]): any {
     let result: any;
     runOutsideAngular(() => {
-      result = this._delegate.onAny(cb);
+      result = this.delegate.on(topic, cb);
     });
     return result;
   }
 
-  on<E extends keyof Events>(topic: E, cb: Events[E]): any {
+  override once<E extends keyof Events>(topic: E, cb: Events[E]): any {
     let result: any;
     runOutsideAngular(() => {
-      result = this._delegate.on(topic, cb);
-    });
-    return result;
-  }
-
-  once<E extends keyof Events>(topic: E, cb: Events[E]): any {
-    let result: any;
-    runOutsideAngular(() => {
-      result = this._delegate.once(topic, cb);
+      result = this.delegate.once(topic, cb);
     });
     return result;
   }
 
   // Need to be run in the zone because otherwise it won't be caught by the
   // listener in the extension.
-  emit<E extends keyof Events>(topic: E, args?: Parameters<Events[E]>): boolean {
-    return this._delegate.emit(topic, args);
+  override emit<E extends keyof Events>(topic: E, args?: Parameters<Events[E]>): boolean {
+    return this.delegate.emit(topic, args);
   }
 
-  destroy(): void {
-    this._delegate.destroy();
+  override destroy(): void {
+    this.delegate.destroy();
   }
 }

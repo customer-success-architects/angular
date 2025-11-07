@@ -1,11 +1,18 @@
+load("//tools:defaults.bzl", "ts_project")
+
 package(default_visibility = ["//visibility:public"])
 
-load("//tools:defaults.bzl", "ts_library")
-
-ts_library(
+ts_project(
     name = "test-utils",
     srcs = ["index.ts"],
     deps = [
-        "@npm//@types/selenium-webdriver",
+        "//:node_modules/@types/selenium-webdriver",
     ],
+)
+
+filegroup(
+    name = "files_for_docgen",
+    srcs = glob([
+        "**/*.ts",
+    ]),
 )

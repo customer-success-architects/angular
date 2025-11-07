@@ -1,37 +1,44 @@
-load("//tools:defaults.bzl", "ng_module", "ts_devserver")
-load("@npm//@angular/build-tooling/bazel/benchmark/component_benchmark:benchmark_test.bzl", "benchmark_test")
+load("@rules_angular//src/optimization:index.bzl", "optimize_angular_app")
+load("//modules/benchmarks:benchmark_test.bzl", "benchmark_test")
 load("//modules/benchmarks:e2e_test.bzl", "e2e_test")
+load("//tools:defaults.bzl", "http_server")
 
 package(default_visibility = ["//modules/benchmarks:__subpackages__"])
 
-ng_module(
-    name = "ng2_switch",
-    srcs = glob(["*.ts"]),
-    generate_ve_shims = True,
-    tsconfig = "//modules/benchmarks:tsconfig-build.json",
-    deps = [
+optimize_angular_app(
+    name = "bundles",
+    srcs = glob(["*.ts"]) + [
+        "index.html",
         "//modules/benchmarks/src:util_lib",
         "//modules/benchmarks/src/tree:util_lib",
-        "//packages/core",
-        "//packages/platform-browser",
-        "//packages/platform-browser-dynamic",
+    ],
+    include_zonejs = True,
+    deps = [
+        "//modules:node_modules/@angular/build",
+        "//modules:node_modules/@angular/common",
+        "//modules:node_modules/@angular/core",
+        "//modules:node_modules/@angular/platform-browser",
+        "//modules:node_modules/rxjs",
+        "//modules:node_modules/tslib",
+        "//modules:node_modules/zone.js",
     ],
 )
 
-ts_devserver(
+# The script needs to be called `app_bundle` for easier syncing into g3.
+genrule(
+    name = "app_bundle",
+    srcs = [":bundles"],
+    outs = ["app_bundle.js"],
+    cmd = "cp $</main.js $@",
+)
+
+http_server(
     name = "devserver",
-    bootstrap = [
-        "@npm//:node_modules/reflect-metadata/Reflect.js",
-        "//packages/zone.js/bundles:zone.umd.js",
+    srcs = ["index.html"],
+    deps = [
+        ":app_bundle",
+        "//modules:node_modules/zone.js",
     ],
-    entry_module = "angular/modules/benchmarks/src/tree/ng2_switch/index",
-    port = 4200,
-    scripts = [
-        "@npm//:node_modules/tslib/tslib.js",
-        "//tools/rxjs:rxjs_umd_modules",
-    ],
-    static_files = ["index.html"],
-    deps = [":ng2_switch"],
 )
 
 benchmark_test(

@@ -10,10 +10,17 @@
         "enableI18nLegacyMessageIdFormat": true
       },
       "compilationModeFilter": [
-        "full compile"
+        "full compile",
+        "declaration-only emit"
       ],
       "expectations": [
         {
+          "files": [
+            {
+              "generated": "legacy_enabled.js",
+              "expected": "legacy_enabled.js"
+            }
+          ],
           "extraChecks": [
             "verifyPlaceholdersIntegrity",
             "verifyUniqueConsts"

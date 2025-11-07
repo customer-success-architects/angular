@@ -121,7 +121,7 @@ Because the first import of an NgModule from a user library to a `.d.ts` is alwa
 Aliasing is currently used in two cases:
 
 1. To address strict dependency checking issues when using a `UnifiedModulesHost`.
-2. To support dependening on non-Angular Package Format packages (e.g. private libraries in monorepos) which do not have an entrypoint file through which all directives/pipes/modules are exported.
+2. To support depending on non-Angular Package Format packages (e.g. private libraries in monorepos) which do not have an entrypoint file through which all directives/pipes/modules are exported.
 
 In environments with "strict dependency checking" as described above, an NgModule which exports another NgModule from one of its dependencies needs to export its directives/pipes as well, in order to make them available to the downstream compiler.
 
@@ -132,7 +132,6 @@ A `UnifiedModulesAliasingHost` implements `AliasingHost` and makes full use of t
 When compiling an NgModule, re-exports are added under a stable name for each directive/pipe that's re-exported by the NgModule.
 
 When importing that NgModule, alias `Expression`s are added to all the `Reference`s for those directives/pipes that are guaranteed to be from a direct dependency.
-
 
 ### Private re-exports for non-APF packages
 
@@ -204,7 +203,6 @@ import Foo from './foo';
 ```
 
 Then the generated code depends on a few factors (target/module/esModuleInterop settings), but roughly looks like:
-
 
 ```javascript
 let foo_1 = require('./foo');

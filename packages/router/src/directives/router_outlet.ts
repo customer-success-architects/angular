@@ -3,10 +3,32 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
-import {Attribute, ChangeDetectorRef, ComponentFactoryResolver, ComponentRef, Directive, EnvironmentInjector, EventEmitter, Injector, OnDestroy, OnInit, Output, ViewContainerRef, ɵRuntimeError as RuntimeError,} from '@angular/core';
+import {
+  ChangeDetectorRef,
+  ComponentRef,
+  Directive,
+  EnvironmentInjector,
+  EventEmitter,
+  inject,
+  Injectable,
+  InjectionToken,
+  Injector,
+  Input,
+  input,
+  OnDestroy,
+  OnInit,
+  Output,
+  reflectComponentType,
+  ɵRuntimeError as RuntimeError,
+  Signal,
+  SimpleChanges,
+  ViewContainerRef,
+} from '@angular/core';
+import {combineLatest, of, Subscription} from 'rxjs';
+import {switchMap} from 'rxjs/operators';
 
 import {RuntimeErrorCode} from '../errors';
 import {Data} from '../models';
@@ -14,7 +36,30 @@ import {ChildrenOutletContexts} from '../router_outlet_context';
 import {ActivatedRoute} from '../router_state';
 import {PRIMARY_OUTLET} from '../shared';
 
-const NG_DEV_MODE = typeof ngDevMode === 'undefined' || ngDevMode;
+/**
+ * An `InjectionToken` provided by the `RouterOutlet` and can be set using the `routerOutletData`
+ * input.
+ *
+ * When unset, this value is `null` by default.
+ *
+ * @usageNotes
+ *
+ * To set the data from the template of the component with `router-outlet`:
+ * ```html
+ * <router-outlet [routerOutletData]="{name: 'Angular'}" />
+ * ```
+ *
+ * To read the data in the routed component:
+ * ```ts
+ * data = inject(ROUTER_OUTLET_DATA) as Signal<{name: string}>;
+ * ```
+ *
+ * @publicApi
+ * @see [Page routerOutletData](guide/routing/show-routes-with-outlets#passing-contextual-data-to-routed-components)
+ */
+export const ROUTER_OUTLET_DATA = new InjectionToken<Signal<unknown | undefined>>(
+  typeof ngDevMode !== undefined && ngDevMode ? 'RouterOutlet data' : '',
+);
 
 /**
  * An interface that defines the contract for developing a component outlet for the `Router`.
@@ -26,7 +71,7 @@ const NG_DEV_MODE = typeof ngDevMode === 'undefined' || ngDevMode;
  * `ChildrenOutletContexts#onChildOutletDestroyed`. When the `Router` identifies a matched `Route`,
  * it looks for a registered outlet in the `ChildrenOutletContexts` and activates it.
  *
- * @see `ChildrenOutletContexts`
+ * @see {@link ChildrenOutletContexts}
  * @publicApi
  */
 export interface RouterOutletContract {
@@ -38,7 +83,7 @@ export interface RouterOutletContract {
   isActivated: boolean;
 
   /** The instance of the activated component or `null` if the outlet is not activated. */
-  component: Object|null;
+  component: Object | null;
 
   /**
    * The `Data` of the `ActivatedRoute` snapshot.
@@ -48,19 +93,12 @@ export interface RouterOutletContract {
   /**
    * The `ActivatedRoute` for the outlet or `null` if the outlet is not activated.
    */
-  activatedRoute: ActivatedRoute|null;
+  activatedRoute: ActivatedRoute | null;
 
   /**
    * Called by the `Router` when the outlet should activate (create a component).
    */
-  activateWith(activatedRoute: ActivatedRoute, environmentInjector: EnvironmentInjector|null): void;
-  /**
-   * Called by the `Router` when the outlet should activate (create a component).
-   *
-   * @deprecated Passing a resolver to retrieve a component factory is not required and is
-   *     deprecated since v14.
-   */
-  activateWith(activatedRoute: ActivatedRoute, resolver: ComponentFactoryResolver|null): void;
+  activateWith(activatedRoute: ActivatedRoute, environmentInjector: EnvironmentInjector): void;
 
   /**
    * A request to destroy the currently activated component.
@@ -104,6 +142,16 @@ export interface RouterOutletContract {
    * subtree.
    */
   detachEvents?: EventEmitter<unknown>;
+
+  /**
+   * Used to indicate that the outlet is able to bind data from the `Router` to the outlet
+   * component's inputs.
+   *
+   * When this is `undefined` or `false` and the developer has opted in to the
+   * feature using `withComponentInputBinding`, a warning will be logged in dev mode if this outlet
+   * is used in the application.
+   */
+  readonly supportsBindingToComponentInputs?: true;
 }
 
 /**
@@ -114,7 +162,7 @@ export interface RouterOutletContract {
  * Each outlet can have a unique name, determined by the optional `name` attribute.
  * The name cannot be set or changed dynamically. If not set, default value is "primary".
  *
- * ```
+ * ```html
  * <router-outlet></router-outlet>
  * <router-outlet name='left'></router-outlet>
  * <router-outlet name='right'></router-outlet>
@@ -141,7 +189,7 @@ export interface RouterOutletContract {
  * subtree, and the detached event emits when the `RouteReuseStrategy` instructs the outlet to
  * detach the subtree.
  *
- * ```
+ * ```html
  * <router-outlet
  *   (activate)='onActivate($event)'
  *   (deactivate)='onDeactivate($event)'
@@ -149,10 +197,8 @@ export interface RouterOutletContract {
  *   (detach)='onDetach($event)'></router-outlet>
  * ```
  *
- * @see [Routing tutorial](guide/router-tutorial-toh#named-outlets "Example of a named
- * outlet and secondary route configuration").
- * @see `RouterLink`
- * @see `Route`
+ * @see {@link RouterLink}
+ * @see {@link Route}
  * @ngModule RouterModule
  *
  * @publicApi
@@ -160,12 +206,19 @@ export interface RouterOutletContract {
 @Directive({
   selector: 'router-outlet',
   exportAs: 'outlet',
-  standalone: true,
 })
 export class RouterOutlet implements OnDestroy, OnInit, RouterOutletContract {
-  private activated: ComponentRef<any>|null = null;
-  private _activatedRoute: ActivatedRoute|null = null;
-  private name: string;
+  private activated: ComponentRef<any> | null = null;
+  /** @internal */
+  get activatedComponentRef(): ComponentRef<any> | null {
+    return this.activated;
+  }
+  private _activatedRoute: ActivatedRoute | null = null;
+  /**
+   * The name of the outlet
+   *
+   */
+  @Input() name = PRIMARY_OUTLET;
 
   @Output('activate') activateEvents = new EventEmitter<any>();
   @Output('deactivate') deactivateEvents = new EventEmitter<any>();
@@ -180,36 +233,74 @@ export class RouterOutlet implements OnDestroy, OnInit, RouterOutletContract {
    */
   @Output('detach') detachEvents = new EventEmitter<unknown>();
 
-  constructor(
-      private parentContexts: ChildrenOutletContexts, private location: ViewContainerRef,
-      @Attribute('name') name: string, private changeDetector: ChangeDetectorRef,
-      private environmentInjector: EnvironmentInjector) {
-    this.name = name || PRIMARY_OUTLET;
-    parentContexts.onChildOutletCreated(this.name, this);
-  }
+  /**
+   * Data that will be provided to the child injector through the `ROUTER_OUTLET_DATA` token.
+   *
+   * When unset, the value of the token is `undefined` by default.
+   */
+  readonly routerOutletData = input<unknown>();
 
-  /** @nodoc */
-  ngOnDestroy(): void {
-    // Ensure that the registered outlet is this one before removing it on the context.
-    if (this.parentContexts.getContext(this.name)?.outlet === this) {
-      this.parentContexts.onChildOutletDestroyed(this.name);
+  private parentContexts = inject(ChildrenOutletContexts);
+  private location = inject(ViewContainerRef);
+  private changeDetector = inject(ChangeDetectorRef);
+  private inputBinder = inject(INPUT_BINDER, {optional: true});
+  /** @docs-private */
+  readonly supportsBindingToComponentInputs = true;
+
+  /** @docs-private */
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['name']) {
+      const {firstChange, previousValue} = changes['name'];
+      if (firstChange) {
+        // The first change is handled by ngOnInit. Because ngOnChanges doesn't get called when no
+        // input is set at all, we need to centrally handle the first change there.
+        return;
+      }
+
+      // unregister with the old name
+      if (this.isTrackedInParentContexts(previousValue)) {
+        this.deactivate();
+        this.parentContexts.onChildOutletDestroyed(previousValue);
+      }
+      // register the new name
+      this.initializeOutletWithName();
     }
   }
 
-  /** @nodoc */
+  /** @docs-private */
+  ngOnDestroy(): void {
+    // Ensure that the registered outlet is this one before removing it on the context.
+    if (this.isTrackedInParentContexts(this.name)) {
+      this.parentContexts.onChildOutletDestroyed(this.name);
+    }
+    this.inputBinder?.unsubscribeFromRouteData(this);
+  }
+
+  private isTrackedInParentContexts(outletName: string) {
+    return this.parentContexts.getContext(outletName)?.outlet === this;
+  }
+
+  /** @docs-private */
   ngOnInit(): void {
-    if (!this.activated) {
-      // If the outlet was not instantiated at the time the route got activated we need to populate
-      // the outlet when it is initialized (ie inside a NgIf)
-      const context = this.parentContexts.getContext(this.name);
-      if (context && context.route) {
-        if (context.attachRef) {
-          // `attachRef` is populated when there is an existing component to mount
-          this.attach(context.attachRef, context.route);
-        } else {
-          // otherwise the component defined in the configuration is created
-          this.activateWith(context.route, context.injector);
-        }
+    this.initializeOutletWithName();
+  }
+
+  private initializeOutletWithName() {
+    this.parentContexts.onChildOutletCreated(this.name, this);
+    if (this.activated) {
+      return;
+    }
+
+    // If the outlet was not instantiated at the time the route got activated we need to populate
+    // the outlet when it is initialized (ie inside a NgIf)
+    const context = this.parentContexts.getContext(this.name);
+    if (context?.route) {
+      if (context.attachRef) {
+        // `attachRef` is populated when there is an existing component to mount
+        this.attach(context.attachRef, context.route);
+      } else {
+        // otherwise the component defined in the configuration is created
+        this.activateWith(context.route, context.injector);
       }
     }
   }
@@ -225,14 +316,18 @@ export class RouterOutlet implements OnDestroy, OnInit, RouterOutletContract {
   get component(): Object {
     if (!this.activated)
       throw new RuntimeError(
-          RuntimeErrorCode.OUTLET_NOT_ACTIVATED, NG_DEV_MODE && 'Outlet is not activated');
+        RuntimeErrorCode.OUTLET_NOT_ACTIVATED,
+        (typeof ngDevMode === 'undefined' || ngDevMode) && 'Outlet is not activated',
+      );
     return this.activated.instance;
   }
 
   get activatedRoute(): ActivatedRoute {
     if (!this.activated)
       throw new RuntimeError(
-          RuntimeErrorCode.OUTLET_NOT_ACTIVATED, NG_DEV_MODE && 'Outlet is not activated');
+        RuntimeErrorCode.OUTLET_NOT_ACTIVATED,
+        (typeof ngDevMode === 'undefined' || ngDevMode) && 'Outlet is not activated',
+      );
     return this._activatedRoute as ActivatedRoute;
   }
 
@@ -249,7 +344,9 @@ export class RouterOutlet implements OnDestroy, OnInit, RouterOutletContract {
   detach(): ComponentRef<any> {
     if (!this.activated)
       throw new RuntimeError(
-          RuntimeErrorCode.OUTLET_NOT_ACTIVATED, NG_DEV_MODE && 'Outlet is not activated');
+        RuntimeErrorCode.OUTLET_NOT_ACTIVATED,
+        (typeof ngDevMode === 'undefined' || ngDevMode) && 'Outlet is not activated',
+      );
     this.location.detach();
     const cmp = this.activated;
     this.activated = null;
@@ -261,10 +358,11 @@ export class RouterOutlet implements OnDestroy, OnInit, RouterOutletContract {
   /**
    * Called when the `RouteReuseStrategy` instructs to re-attach a previously detached subtree
    */
-  attach(ref: ComponentRef<any>, activatedRoute: ActivatedRoute) {
+  attach(ref: ComponentRef<any>, activatedRoute: ActivatedRoute): void {
     this.activated = ref;
     this._activatedRoute = activatedRoute;
     this.location.insert(ref.hostView);
+    this.inputBinder?.bindActivatedRouteToOutletComponent(this);
     this.attachEvents.emit(ref.instance);
   }
 
@@ -278,40 +376,46 @@ export class RouterOutlet implements OnDestroy, OnInit, RouterOutletContract {
     }
   }
 
-  activateWith(
-      activatedRoute: ActivatedRoute,
-      resolverOrInjector?: ComponentFactoryResolver|EnvironmentInjector|null) {
+  activateWith(activatedRoute: ActivatedRoute, environmentInjector: EnvironmentInjector): void {
     if (this.isActivated) {
       throw new RuntimeError(
-          RuntimeErrorCode.OUTLET_ALREADY_ACTIVATED,
-          NG_DEV_MODE && 'Cannot activate an already activated outlet');
+        RuntimeErrorCode.OUTLET_ALREADY_ACTIVATED,
+        (typeof ngDevMode === 'undefined' || ngDevMode) &&
+          'Cannot activate an already activated outlet',
+      );
     }
     this._activatedRoute = activatedRoute;
     const location = this.location;
-    const snapshot = activatedRoute._futureSnapshot;
+    const snapshot = activatedRoute.snapshot;
     const component = snapshot.component!;
     const childContexts = this.parentContexts.getOrCreateContext(this.name).children;
-    const injector = new OutletInjector(activatedRoute, childContexts, location.injector);
+    const injector = new OutletInjector(
+      activatedRoute,
+      childContexts,
+      location.injector,
+      this.routerOutletData,
+    );
 
-    if (resolverOrInjector && isComponentFactoryResolver(resolverOrInjector)) {
-      const factory = resolverOrInjector.resolveComponentFactory(component);
-      this.activated = location.createComponent(factory, location.length, injector);
-    } else {
-      const environmentInjector = resolverOrInjector ?? this.environmentInjector;
-      this.activated = location.createComponent(
-          component, {index: location.length, injector, environmentInjector});
-    }
+    this.activated = location.createComponent(component, {
+      index: location.length,
+      injector,
+      environmentInjector: environmentInjector,
+    });
     // Calling `markForCheck` to make sure we will run the change detection when the
     // `RouterOutlet` is inside a `ChangeDetectionStrategy.OnPush` component.
     this.changeDetector.markForCheck();
+    this.inputBinder?.bindActivatedRouteToOutletComponent(this);
     this.activateEvents.emit(this.activated.instance);
   }
 }
 
 class OutletInjector implements Injector {
   constructor(
-      private route: ActivatedRoute, private childContexts: ChildrenOutletContexts,
-      private parent: Injector) {}
+    private route: ActivatedRoute,
+    private childContexts: ChildrenOutletContexts,
+    private parent: Injector,
+    private outletData: Signal<unknown>,
+  ) {}
 
   get(token: any, notFoundValue?: any): any {
     if (token === ActivatedRoute) {
@@ -322,10 +426,89 @@ class OutletInjector implements Injector {
       return this.childContexts;
     }
 
+    if (token === ROUTER_OUTLET_DATA) {
+      return this.outletData;
+    }
+
     return this.parent.get(token, notFoundValue);
   }
 }
 
-function isComponentFactoryResolver(item: any): item is ComponentFactoryResolver {
-  return !!item.resolveComponentFactory;
+export const INPUT_BINDER = new InjectionToken<RoutedComponentInputBinder>('');
+
+/**
+ * Injectable used as a tree-shakable provider for opting in to binding router data to component
+ * inputs.
+ *
+ * The RouterOutlet registers itself with this service when an `ActivatedRoute` is attached or
+ * activated. When this happens, the service subscribes to the `ActivatedRoute` observables (params,
+ * queryParams, data) and sets the inputs of the component using `ComponentRef.setInput`.
+ * Importantly, when an input does not have an item in the route data with a matching key, this
+ * input is set to `undefined`. If it were not done this way, the previous information would be
+ * retained if the data got removed from the route (i.e. if a query parameter is removed).
+ *
+ * The `RouterOutlet` should unregister itself when destroyed via `unsubscribeFromRouteData` so that
+ * the subscriptions are cleaned up.
+ */
+@Injectable()
+export class RoutedComponentInputBinder {
+  private outletDataSubscriptions = new Map<RouterOutlet, Subscription>();
+
+  bindActivatedRouteToOutletComponent(outlet: RouterOutlet): void {
+    this.unsubscribeFromRouteData(outlet);
+    this.subscribeToRouteData(outlet);
+  }
+
+  unsubscribeFromRouteData(outlet: RouterOutlet): void {
+    this.outletDataSubscriptions.get(outlet)?.unsubscribe();
+    this.outletDataSubscriptions.delete(outlet);
+  }
+
+  private subscribeToRouteData(outlet: RouterOutlet) {
+    const {activatedRoute} = outlet;
+    const dataSubscription = combineLatest([
+      activatedRoute.queryParams,
+      activatedRoute.params,
+      activatedRoute.data,
+    ])
+      .pipe(
+        switchMap(([queryParams, params, data], index) => {
+          data = {...queryParams, ...params, ...data};
+          // Get the first result from the data subscription synchronously so it's available to
+          // the component as soon as possible (and doesn't require a second change detection).
+          if (index === 0) {
+            return of(data);
+          }
+          // Promise.resolve is used to avoid synchronously writing the wrong data when
+          // two of the Observables in the `combineLatest` stream emit one after
+          // another.
+          return Promise.resolve(data);
+        }),
+      )
+      .subscribe((data) => {
+        // Outlet may have been deactivated or changed names to be associated with a different
+        // route
+        if (
+          !outlet.isActivated ||
+          !outlet.activatedComponentRef ||
+          outlet.activatedRoute !== activatedRoute ||
+          activatedRoute.component === null
+        ) {
+          this.unsubscribeFromRouteData(outlet);
+          return;
+        }
+
+        const mirror = reflectComponentType(activatedRoute.component);
+        if (!mirror) {
+          this.unsubscribeFromRouteData(outlet);
+          return;
+        }
+
+        for (const {templateName} of mirror.inputs) {
+          outlet.activatedComponentRef.setInput(templateName, data[templateName]);
+        }
+      });
+
+    this.outletDataSubscriptions.set(outlet, dataSubscription);
+  }
 }

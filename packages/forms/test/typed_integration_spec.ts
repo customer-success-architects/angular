@@ -3,14 +3,24 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
 // These tests mainly check the types of strongly typed form controls, which is generally enforced
 // at compile time.
 
+import {ɵRawValue} from '../index';
 import {FormBuilder, NonNullableFormBuilder, UntypedFormBuilder} from '../src/form_builder';
-import {AbstractControl, FormArray, FormControl, FormGroup, UntypedFormArray, UntypedFormControl, UntypedFormGroup, Validators} from '../src/forms';
+import {
+  AbstractControl,
+  FormArray,
+  FormControl,
+  FormGroup,
+  UntypedFormArray,
+  UntypedFormControl,
+  UntypedFormGroup,
+  Validators,
+} from '../src/forms';
 import {FormRecord} from '../src/model/form_group';
 
 describe('Typed Class', () => {
@@ -65,15 +75,15 @@ describe('Typed Class', () => {
     });
 
     it('supports nullable controls', () => {
-      const c = new FormControl<string|null>('');
+      const c = new FormControl<string | null>('');
       {
-        type ValueType = string|null;
+        type ValueType = string | null;
         let t: ValueType = c.value;
         let t1 = c.value;
         t1 = null as unknown as ValueType;
       }
       {
-        type RawValueType = string|null;
+        type RawValueType = string | null;
         let t: RawValueType = c.getRawValue();
         let t1 = c.getRawValue();
         t1 = null as unknown as RawValueType;
@@ -91,13 +101,13 @@ describe('Typed Class', () => {
     it('should create a nullable control without {nonNullable: true}', () => {
       const c = new FormControl<string>('');
       {
-        type ValueType = string|null;
+        type ValueType = string | null;
         let t: ValueType = c.value;
         let t1 = c.value;
         t1 = null as unknown as ValueType;
       }
       {
-        type RawValueType = string|null;
+        type RawValueType = string | null;
         let t: RawValueType = c.getRawValue();
         let t1 = c.getRawValue();
         t1 = null as unknown as RawValueType;
@@ -148,22 +158,44 @@ describe('Typed Class', () => {
       let ufc: UntypedFormControl;
       ufc = c;
     });
+
+    it('should infer value type correctly', () => {
+      function valueFn<T, U extends T, V>(ctrl: AbstractControl<T, U, V>) {
+        return ctrl.value;
+      }
+
+      const c = new FormControl<{foo: string}>({foo: ''});
+      let val: {foo: string} | null;
+      val = valueFn(c);
+      val = valueFn(c)!;
+    });
+
+    it('should only allow to set valid values as defaultValue', () => {
+      const c1 = new FormControl('valid', {nonNullable: true});
+      c1.defaultValue = 'also valid';
+      // @ts-expect-error this should not be allowed
+      c1.defaultValue = null;
+
+      const c2 = new FormControl<string | null>('valid');
+      c2.defaultValue = 'also valid';
+      c2.defaultValue = null;
+    });
   });
 
   describe('FormGroup', () => {
     it('supports inferred groups', () => {
       const c = new FormGroup({
         c: new FormControl('', {nonNullable: true}),
-        d: new FormControl(0, {nonNullable: true})
+        d: new FormControl(0, {nonNullable: true}),
       });
       {
-        type ValueType = Partial<{c: string, d: number}>;
+        type ValueType = Partial<{c: string; d: number}>;
         let t: ValueType = c.value;
         let t1 = c.value;
         t1 = null as unknown as ValueType;
       }
       {
-        type RawValueType = {c: string, d: number};
+        type RawValueType = {c: string; d: number};
         let t: RawValueType = c.getRawValue();
         let t1 = c.getRawValue();
         t1 = null as unknown as RawValueType;
@@ -172,25 +204,25 @@ describe('Typed Class', () => {
       c.addControl('c', new FormControl('', {nonNullable: true}));
       c.setControl('c', new FormControl('', {nonNullable: true}));
       c.contains('c');
-      c.contains('foo');  // Contains checks always allowed
+      c.contains('foo'); // Contains checks always allowed
       c.setValue({c: '', d: 0});
       c.patchValue({c: ''});
       c.reset({c: '', d: 0});
     });
 
     it('supports explicit groups', () => {
-      const c = new FormGroup<{c: FormControl<string>, d: FormControl<number>}>({
+      const c = new FormGroup<{c: FormControl<string>; d: FormControl<number>}>({
         c: new FormControl('', {nonNullable: true}),
-        d: new FormControl(0, {nonNullable: true})
+        d: new FormControl(0, {nonNullable: true}),
       });
       {
-        type ValueType = Partial<{c: string, d: number}>;
+        type ValueType = Partial<{c: string; d: number}>;
         let t: ValueType = c.value;
         let t1 = c.value;
         t1 = null as unknown as ValueType;
       }
       {
-        type RawValueType = {c: string, d: number};
+        type RawValueType = {c: string; d: number};
         let t: RawValueType = c.getRawValue();
         let t1 = c.getRawValue();
         t1 = null as unknown as RawValueType;
@@ -207,8 +239,9 @@ describe('Typed Class', () => {
     it('supports explicit groups with boolean types', () => {
       const c0 = new FormGroup({a: new FormControl(true, {nonNullable: true})});
 
-      const c1: AbstractControl<{a?: boolean}, {a: boolean}> =
-          new FormGroup({a: new FormControl(true, {nonNullable: true})});
+      const c1: AbstractControl<{a?: boolean}, {a: boolean}> = new FormGroup({
+        a: new FormControl(true, {nonNullable: true}),
+      });
 
       // const c2: FormGroup<{a: FormControl<boolean>}> =
       //     new FormGroup({a: new FormControl(true, {nonNullable: true})});
@@ -220,23 +253,25 @@ describe('Typed Class', () => {
     });
 
     it('supports groups with nullable controls', () => {
-      const c = new FormGroup(
-          {c: new FormControl<string|null>(''), d: new FormControl('', {nonNullable: true})});
+      const c = new FormGroup({
+        c: new FormControl<string | null>(''),
+        d: new FormControl('', {nonNullable: true}),
+      });
       {
-        type ValueType = Partial<{c: string | null, d: string}>;
+        type ValueType = Partial<{c: string | null; d: string}>;
         let t: ValueType = c.value;
         let t1 = c.value;
         t1 = null as unknown as ValueType;
       }
       {
-        type RawValueType = {c: string | null, d: string};
+        type RawValueType = {c: string | null; d: string};
         let t: RawValueType = c.getRawValue();
         let t1 = c.getRawValue();
         t1 = null as unknown as RawValueType;
       }
-      c.registerControl('c', new FormControl<string|null>(null));
-      c.addControl('c', new FormControl<string|null>(null));
-      c.setControl('c', new FormControl<string|null>(null));
+      c.registerControl('c', new FormControl<string | null>(null));
+      c.addControl('c', new FormControl<string | null>(null));
+      c.setControl('c', new FormControl<string | null>(null));
       c.contains('c');
       c.setValue({c: '', d: ''});
       c.setValue({c: null, d: ''});
@@ -262,7 +297,7 @@ describe('Typed Class', () => {
       c.setControl('c', new FormControl(0));
       c.setControl('notpresent', new FormControl(0));
       c.removeControl('c');
-      c.controls.d.valueChanges.subscribe((v) => {});
+      c.controls['d'].valueChanges.subscribe(() => {});
     });
 
     it('supports groups with explicit named interface types', () => {
@@ -314,18 +349,18 @@ describe('Typed Class', () => {
       }
       const bro = new FormGroup<CatControlsInterface>({
         name: new FormControl('bob', {nonNullable: true}),
-        lives: new FormControl(9, {nonNullable: true})
+        lives: new FormControl(9, {nonNullable: true}),
       });
       const sis = new FormGroup<CatControlsInterface>({
         name: new FormControl('lucy', {nonNullable: true}),
-        lives: new FormControl(9, {nonNullable: true})
+        lives: new FormControl(9, {nonNullable: true}),
       });
       const litter = new FormGroup<LitterControlsInterface>({
         brother: bro,
         sister: sis,
       });
       {
-        type ValueType = Partial<{brother: Partial<CatInterface>, sister: Partial<CatInterface>}>;
+        type ValueType = Partial<{brother: Partial<CatInterface>; sister: Partial<CatInterface>}>;
         let t: ValueType = litter.value;
         let t1 = litter.value;
         t1 = null as unknown as ValueType;
@@ -341,8 +376,9 @@ describe('Typed Class', () => {
     });
 
     it('supports nested inferred groups', () => {
-      const c = new FormGroup(
-          {innerGroup: new FormGroup({innerControl: new FormControl('', {nonNullable: true})})});
+      const c = new FormGroup({
+        innerGroup: new FormGroup({innerControl: new FormControl('', {nonNullable: true})}),
+      });
       {
         type ValueType = Partial<{innerGroup: Partial<{innerControl: string}>}>;
         let t: ValueType = c.value;
@@ -356,11 +392,17 @@ describe('Typed Class', () => {
         t1 = null as unknown as RawValueType;
       }
       c.registerControl(
-          'innerGroup', new FormGroup({innerControl: new FormControl('', {nonNullable: true})}));
+        'innerGroup',
+        new FormGroup({innerControl: new FormControl('', {nonNullable: true})}),
+      );
       c.addControl(
-          'innerGroup', new FormGroup({innerControl: new FormControl('', {nonNullable: true})}));
+        'innerGroup',
+        new FormGroup({innerControl: new FormControl('', {nonNullable: true})}),
+      );
       c.setControl(
-          'innerGroup', new FormGroup({innerControl: new FormControl('', {nonNullable: true})}));
+        'innerGroup',
+        new FormGroup({innerControl: new FormControl('', {nonNullable: true})}),
+      );
       c.contains('innerGroup');
       c.setValue({innerGroup: {innerControl: ''}});
       c.patchValue({});
@@ -370,8 +412,9 @@ describe('Typed Class', () => {
     it('supports nested explicit groups', () => {
       const ig = new FormControl('', {nonNullable: true});
       const og = new FormGroup({innerControl: ig});
-      const c = new FormGroup<{innerGroup: FormGroup<{innerControl: FormControl<string>}>}>(
-          {innerGroup: og});
+      const c = new FormGroup<{innerGroup: FormGroup<{innerControl: FormControl<string>}>}>({
+        innerGroup: og,
+      });
       {
         type ValueType = Partial<{innerGroup: Partial<{innerControl: string}>}>;
         let t: ValueType = c.value;
@@ -406,18 +449,18 @@ describe('Typed Class', () => {
     });
 
     it('supports groups with mixed optional controls', () => {
-      const c = new FormGroup<{c?: FormControl<string>, d: FormControl<string>}>({
+      const c = new FormGroup<{c?: FormControl<string>; d: FormControl<string>}>({
         c: new FormControl<string>('', {nonNullable: true}),
-        d: new FormControl('', {nonNullable: true})
+        d: new FormControl('', {nonNullable: true}),
       });
       {
-        type ValueType = Partial<{c?: string, d: string}>;
+        type ValueType = Partial<{c?: string; d: string}>;
         let t: ValueType = c.value;
         let t1 = c.value;
         t1 = null as unknown as ValueType;
       }
       {
-        type RawValueType = {c?: string, d: string};
+        type RawValueType = {c?: string; d: string};
         let t: RawValueType = c.getRawValue();
         let t1 = c.getRawValue();
         t1 = null as unknown as RawValueType;
@@ -434,13 +477,14 @@ describe('Typed Class', () => {
       c.reset({d: ''});
       c.reset({c: '', d: ''});
       // @ts-expect-error
-      c.removeControl('d');  // This is not allowed
+      c.removeControl('d'); // This is not allowed
     });
 
     it('supports nested groups with optional controls', () => {
       type t = FormGroup<{meal: FormGroup<{dessert?: FormControl<string>}>}>;
-      const menu = new FormGroup<{meal: FormGroup<{dessert?: FormControl<string>}>}>(
-          {meal: new FormGroup({})});
+      const menu = new FormGroup<{meal: FormGroup<{dessert?: FormControl<string>}>}>({
+        meal: new FormGroup({}),
+      });
       {
         type ValueType = Partial<{meal: Partial<{dessert?: string}>}>;
         let t: ValueType = menu.value;
@@ -472,24 +516,33 @@ describe('Typed Class', () => {
         t1 = null as unknown as RawValueType;
       }
       c.registerControl(
-          'a', new FormArray([
-            new FormControl('', {nonNullable: true}), new FormControl('', {nonNullable: true})
-          ]));
+        'a',
+        new FormArray([
+          new FormControl('', {nonNullable: true}),
+          new FormControl('', {nonNullable: true}),
+        ]),
+      );
       c.registerControl('a', new FormArray([new FormControl('', {nonNullable: true})]));
       // @ts-expect-error
       c.registerControl('a', new FormArray([]));
       c.registerControl('a', new FormArray<FormControl<string>>([]));
       c.addControl(
-          'a', new FormArray([
-            new FormControl('', {nonNullable: true}), new FormControl('', {nonNullable: true})
-          ]));
+        'a',
+        new FormArray([
+          new FormControl('', {nonNullable: true}),
+          new FormControl('', {nonNullable: true}),
+        ]),
+      );
       c.addControl('a', new FormArray([new FormControl('', {nonNullable: true})]));
       // @ts-expect-error
       c.addControl('a', new FormArray([]));
       c.setControl(
-          'a', new FormArray([
-            new FormControl('', {nonNullable: true}), new FormControl('', {nonNullable: true})
-          ]));
+        'a',
+        new FormArray([
+          new FormControl('', {nonNullable: true}),
+          new FormControl('', {nonNullable: true}),
+        ]),
+      );
       c.setControl('a', new FormArray([new FormControl('', {nonNullable: true})]));
       // @ts-expect-error
       c.setControl('a', new FormArray([]));
@@ -535,7 +588,7 @@ describe('Typed Class', () => {
       const c = new FormGroup<AddressBookControls>({
         returnIfFound: new FormControl('1234 Geary, San Francisco', {nonNullable: true}),
         alex: new FormControl('999 Valencia, San Francisco', {nonNullable: true}),
-        andrew: new FormControl('100 Lombard, San Francisco', {nonNullable: true})
+        andrew: new FormControl('100 Lombard, San Francisco', {nonNullable: true}),
       });
       {
         type ValueType = Partial<AddressBookValues>;
@@ -551,11 +604,17 @@ describe('Typed Class', () => {
       }
       // Named fields.
       c.registerControl(
-          'returnIfFound', new FormControl('200 Ellis, San Francisco', {nonNullable: true}));
+        'returnIfFound',
+        new FormControl('200 Ellis, San Francisco', {nonNullable: true}),
+      );
       c.addControl(
-          'returnIfFound', new FormControl('200 Ellis, San Francisco', {nonNullable: true}));
+        'returnIfFound',
+        new FormControl('200 Ellis, San Francisco', {nonNullable: true}),
+      );
       c.setControl(
-          'returnIfFound', new FormControl('200 Ellis, San Francisco', {nonNullable: true}));
+        'returnIfFound',
+        new FormControl('200 Ellis, San Francisco', {nonNullable: true}),
+      );
       // c.removeControl('returnIfFound'); // Not allowed
       c.contains('returnIfFound');
       c.setValue({returnIfFound: '200 Ellis, San Francisco', alex: '1 Main', andrew: '2 Main'});
@@ -584,13 +643,13 @@ describe('Typed Class', () => {
           address: new FormControl('2200 Bryant', {nonNullable: true}),
           date: new FormGroup({
             day: new FormControl(21, {nonNullable: true}),
-            month: new FormControl('March', {nonNullable: true})
-          })
-        })
+            month: new FormControl('March', {nonNullable: true}),
+          }),
+        }),
       });
       const rv = c.getRawValue();
       {
-        type ValueType = {day: number, month: string};
+        type ValueType = {day: number; month: string};
         let t: ValueType = c.get('venue.date')!.value;
         let t1 = c.get('venue.date')!.value;
         t1 = null as unknown as ValueType;
@@ -610,7 +669,7 @@ describe('Typed Class', () => {
       {
         // .get(...) should be `never`, but we use `?` to coerce to undefined so the test passes at
         // runtime.
-        type ValueType = never|undefined;
+        type ValueType = never | undefined;
         let t: ValueType = c.get('foobar')?.value;
         let t1 = c.get('foobar')?.value;
         t1 = null as unknown as ValueType;
@@ -630,13 +689,47 @@ describe('Typed Class', () => {
 
     it('is assignable to UntypedFormGroup in a complex case', () => {
       interface Cat {
-        name: FormControl<string|null>;
+        name: FormControl<string | null>;
         lives?: FormControl<number>;
       }
       let ufg: UntypedFormGroup;
-      const fg = new FormGroup(
-          {myCats: new FormArray([new FormGroup<Cat>({name: new FormControl('bob')})])});
+      const fg = new FormGroup({
+        myCats: new FormArray([new FormGroup<Cat>({name: new FormControl('bob')})]),
+      });
       ufg = fg;
+    });
+
+    it('should support ControlState as reset argument', () => {
+      const fg = new FormGroup({
+        name: new FormControl({foo: 'foo'}),
+      });
+      fg.reset({name: {foo: 'bar'}});
+
+      fg.reset({name: {value: {foo: 'bar'}, disabled: true}});
+    });
+
+    it('should infer value type correctly', () => {
+      function valueFn<T, U extends T, V>(ctrl: AbstractControl<T, U, V>) {
+        return ctrl.value;
+      }
+      const fg = new FormGroup({
+        name: new FormControl('bob'),
+      });
+
+      let val: Partial<{name: string | null}>;
+      val = valueFn(fg);
+    });
+
+    it('should reset inferred formGroup', () => {
+      function ctrlFn<T, U extends T, V>(ctrl: AbstractControl<T, U, V>) {
+        return ctrl;
+      }
+
+      const fg = new FormGroup({
+        name: new FormControl('bob'),
+      });
+      ctrlFn(fg).reset({name: 'matt'});
+      ctrlFn(fg).reset({name: {value: 'matt', disabled: true}});
     });
   });
 
@@ -691,6 +784,54 @@ describe('Typed Class', () => {
       c.reset({c: 42, d: 0});
       c.removeControl('c');
     });
+
+    it('should only accept non-partial values', () => {
+      const fr = new FormRecord<FormGroup<{foo: FormControl<number>; bar: FormControl<number>}>>({
+        group1: new FormGroup({
+          foo: new FormControl(42, {nonNullable: true}),
+          bar: new FormControl(42, {nonNullable: true}),
+        }),
+      });
+
+      type ValueParam = Parameters<typeof fr.setValue>[0];
+
+      // This should error if the typing allows partial values
+      const value: ValueParam = {
+        // @ts-expect-error
+        group1: {
+          foo: 42,
+          // bar value is missing
+        },
+      };
+
+      type RecordRawValue = ɵRawValue<typeof fr>;
+      const rawValue: RecordRawValue = {
+        // @ts-expect-error
+        group1: {
+          foo: 42,
+          // bar value is missing
+        },
+      };
+
+      expect(() =>
+        fr.setValue({
+          // @ts-expect-error
+          group1: {
+            foo: 42,
+          },
+        }),
+      ).toThrowError(/NG01002: Must supply a value for form control/);
+    });
+
+    it('should reset inferred formarray', () => {
+      function ctrlFn<T, U extends T, V>(ctrl: AbstractControl<T, U, V>) {
+        return ctrl;
+      }
+
+      let c = new FormRecord<FormControl<number>>({a: new FormControl(42, {nonNullable: true})});
+      ctrlFn(c).reset({a: 99});
+      ctrlFn(c).reset({a: {value: 99, disabled: true}});
+    });
   });
 
   describe('FormArray', () => {
@@ -714,7 +855,7 @@ describe('Typed Class', () => {
       c.reset([]);
       c.reset(['']);
       c.clear();
-      c.valueChanges.subscribe(v => v);
+      c.valueChanges.subscribe((v) => v);
     });
 
     it('supports explicit arrays', () => {
@@ -730,8 +871,9 @@ describe('Typed Class', () => {
     it('supports explicit arrays with boolean types', () => {
       const c0 = new FormArray([new FormControl(true, {nonNullable: true})]);
 
-      const c1: AbstractControl<boolean[]> =
-          new FormArray([new FormControl(true, {nonNullable: true})]);
+      const c1: AbstractControl<boolean[]> = new FormArray([
+        new FormControl(true, {nonNullable: true}),
+      ]);
     });
 
     it('supports arrays with the default type', () => {
@@ -744,7 +886,7 @@ describe('Typed Class', () => {
         t1 = null as unknown as ValueType;
       }
       c.at(0);
-      c.at(0).valueChanges.subscribe(v => {});
+      c.at(0).valueChanges.subscribe((v) => {});
       c.push(new FormControl('', {nonNullable: true}));
       c.insert(0, new FormControl('', {nonNullable: true}));
       c.removeAt(0);
@@ -762,18 +904,18 @@ describe('Typed Class', () => {
     });
 
     it('supports arrays with nullable controls', () => {
-      const c = new FormArray([new FormControl<string|null>('')]);
+      const c = new FormArray([new FormControl<string | null>('')]);
       {
-        type ValueType = Array<string|null>;
+        type ValueType = Array<string | null>;
         let t: ValueType = c.value;
         let t1 = c.value;
         t1 = null as unknown as ValueType;
       }
       c.at(0);
-      c.push(new FormControl<string|null>(null));
-      c.insert(0, new FormControl<string|null>(null));
+      c.push(new FormControl<string | null>(null));
+      c.insert(0, new FormControl<string | null>(null));
       c.removeAt(0);
-      c.setControl(0, new FormControl<string|null>(null));
+      c.setControl(0, new FormControl<string | null>(null));
       c.setValue(['', '']);
       c.patchValue([]);
       c.patchValue(['']);
@@ -794,8 +936,9 @@ describe('Typed Class', () => {
     });
 
     it('supports explicit nested arrays', () => {
-      const c = new FormArray<FormArray<FormControl<string>>>(
-          [new FormArray([new FormControl('', {nonNullable: true})])]);
+      const c = new FormArray<FormArray<FormControl<string>>>([
+        new FormArray([new FormControl('', {nonNullable: true})]),
+      ]);
       {
         type ValueType = Array<Array<string>>;
         let t: ValueType = c.value;
@@ -822,8 +965,9 @@ describe('Typed Class', () => {
     });
 
     it('supports arrays with explicit nested groups', () => {
-      const fg =
-          new FormGroup<{c: FormControl<string>}>({c: new FormControl('', {nonNullable: true})});
+      const fg = new FormGroup<{c: FormControl<string>}>({
+        c: new FormControl('', {nonNullable: true}),
+      });
       const c = new FormArray<FormGroup<{c: FormControl<string>}>>([fg]);
       {
         type ValueType = Array<Partial<{c: string}>>;
@@ -841,9 +985,7 @@ describe('Typed Class', () => {
 
     it('should have strongly-typed get', () => {
       const c = new FormGroup({
-        food: new FormArray([
-          new FormControl('2200 Bryant', {nonNullable: true}),
-        ])
+        food: new FormArray([new FormControl('2200 Bryant', {nonNullable: true})]),
       });
       const rv = c.getRawValue();
       {
@@ -864,6 +1006,25 @@ describe('Typed Class', () => {
       let ufa: UntypedFormArray;
       const fa = new FormArray([new FormControl('bob')]);
       ufa = fa;
+    });
+
+    it('should infer value type correctly', () => {
+      function valueFn<T, U extends T, V>(ctrl: AbstractControl<T, U, V>) {
+        return ctrl.value;
+      }
+
+      const fa = new FormArray([new FormControl('bob')]);
+      let val: (string | null)[];
+      val = valueFn(fa);
+    });
+
+    it('should reset inferred formarray', () => {
+      function ctrlFn<T, U extends T, V>(ctrl: AbstractControl<T, U, V>) {
+        return ctrl;
+      }
+
+      const fa = new FormArray([new FormControl('bob')]);
+      ctrlFn(fa).reset(['jim', 'jam', 'joe']);
     });
   });
 
@@ -901,29 +1062,29 @@ describe('Typed Class', () => {
             amount: new FormControl(12, {nonNullable: true}),
             currency: new FormControl('USD', {nonNullable: true}),
           }),
-        })
-      ])
+        }),
+      ]),
     });
     {
       type ValueType = Partial<{
         venue: Partial<{
-          location: string,
+          location: string;
           date: Partial<{
-            year: number,
-            month: string,
-            day: number,
-          }>,
-        }>,
+            year: number;
+            month: string;
+            day: number;
+          }>;
+        }>;
         dinnerOptions: Partial<{
           food: Partial<{
-            entree: string,
-            dessert: string,
-          }>,
+            entree: string;
+            dessert: string;
+          }>;
           price: Partial<{
-            amount: number,
-            currency: string,
-          }>,
-        }>[],
+            amount: number;
+            currency: string;
+          }>;
+        }>[];
       }>;
       let t: ValueType = myParty.value;
       let t1 = myParty.value;
@@ -932,30 +1093,29 @@ describe('Typed Class', () => {
     {
       type RawValueType = {
         venue: {
-          location: string,
+          location: string;
           date: {
-            year: number,
-            month: string,
-            day: number,
-          },
-        },
+            year: number;
+            month: string;
+            day: number;
+          };
+        };
         dinnerOptions: {
           food: {
-            entree: string,
-            dessert: string,
-          },
+            entree: string;
+            dessert: string;
+          };
           price: {
-            amount: number,
-            currency: string,
-          },
-        }[],
+            amount: number;
+            currency: string;
+          };
+        }[];
       };
       let t: RawValueType = myParty.getRawValue();
       let t1 = myParty.getRawValue();
       t1 = null as unknown as RawValueType;
     }
   });
-
 
   describe('FormBuilder', () => {
     let fb: FormBuilder = new FormBuilder();
@@ -983,7 +1143,7 @@ describe('Typed Class', () => {
       it('nullably from values', () => {
         const c = fb.control('foo');
         {
-          type RawValueType = string|null;
+          type RawValueType = string | null;
           let t: RawValueType = c.getRawValue();
           let t1 = c.getRawValue();
           t1 = null as unknown as RawValueType;
@@ -1003,7 +1163,7 @@ describe('Typed Class', () => {
       it('nullably from FormStates', () => {
         const c = fb.control({value: 'foo', disabled: false});
         {
-          type RawValueType = string|null;
+          type RawValueType = string | null;
           let t: RawValueType = c.getRawValue();
           let t1 = c.getRawValue();
           t1 = null as unknown as RawValueType;
@@ -1019,13 +1179,23 @@ describe('Typed Class', () => {
           t1 = null as unknown as RawValueType;
         }
       });
+
+      it('with array values', () => {
+        const c = fb.control([1, 2, 3]);
+        {
+          type RawValueType = number[] | null;
+          let t: RawValueType = c.getRawValue();
+          let t1 = c.getRawValue();
+          t1 = null as unknown as RawValueType;
+        }
+      });
     });
 
     describe('should build FormGroups', () => {
       it('from objects with plain values', () => {
         const c = fb.group({foo: 'bar'});
         {
-          type ControlsType = {foo: FormControl<string|null>};
+          type ControlsType = {foo: FormControl<string | null>};
           let t: ControlsType = c.controls;
           let t1 = c.controls;
           t1 = null as unknown as ControlsType;
@@ -1034,16 +1204,18 @@ describe('Typed Class', () => {
 
       it('from objects with optional keys', () => {
         const controls = {name: fb.control('')};
-        const foo:
-            FormGroup<{name: FormControl<string|null>; address?: FormControl<string|null>;}> =
-                fb.group<{name: FormControl<string|null>; address?: FormControl<string|null>;}>(
-                    controls);
+        const foo: FormGroup<{
+          name: FormControl<string | null>;
+          address?: FormControl<string | null>;
+        }> = fb.group<{name: FormControl<string | null>; address?: FormControl<string | null>}>(
+          controls,
+        );
       });
 
       it('from objects with FormControlState', () => {
         const c = fb.group({foo: {value: 'bar', disabled: false}});
         {
-          type ControlsType = {foo: FormControl<string|null>};
+          type ControlsType = {foo: FormControl<string | null>};
           let t: ControlsType = c.controls;
           let t1 = c.controls;
           t1 = null as unknown as ControlsType;
@@ -1053,7 +1225,17 @@ describe('Typed Class', () => {
       it('from objects with ControlConfigs', () => {
         const c = fb.group({foo: ['bar']});
         {
-          type ControlsType = {foo: FormControl<string|null>};
+          type ControlsType = {foo: FormControl<string | null>};
+          let t: ControlsType = c.controls;
+          let t1 = c.controls;
+          t1 = null as unknown as ControlsType;
+        }
+      });
+
+      it('from objects with FormControlStates nested inside ControlConfigs', () => {
+        const c = fb.group({foo: [{value: 'bar', disabled: true}, Validators.required]});
+        {
+          type ControlsType = {foo: FormControl<string | null>};
           let t: ControlsType = c.controls;
           let t1 = c.controls;
           t1 = null as unknown as ControlsType;
@@ -1063,17 +1245,43 @@ describe('Typed Class', () => {
       it('from objects with ControlConfigs and validators', () => {
         const c = fb.group({foo: ['bar', Validators.required]});
         {
-          type ControlsType = {foo: FormControl<string|null>};
+          type ControlsType = {foo: FormControl<string | null>};
           let t: ControlsType = c.controls;
           let t1 = c.controls;
           t1 = null as unknown as ControlsType;
         }
+
+        const c2 = fb.group({foo: [[1, 2, 3], Validators.required]});
+        {
+          type ControlsType = {foo: FormControl<number[] | null>};
+          let t: ControlsType = c2.controls;
+          let t1 = c2.controls;
+          t1 = null as unknown as ControlsType;
+        }
+        expect(c2.controls.foo.value).toEqual([1, 2, 3]);
+
+        const c3 = fb.group({foo: [null, Validators.required]});
+        {
+          type ControlsType = {foo: FormControl<null>};
+          let t: ControlsType = c3.controls;
+          let t1 = c3.controls;
+          t1 = null as unknown as ControlsType;
+        }
+
+        const c4 = fb.group({foo: [[1, 2, 3], Validators.maxLength(4)]});
+        {
+          type ControlsType = {foo: FormControl<number[] | null>};
+          let t: ControlsType = c4.controls;
+          let t1 = c4.controls;
+          t1 = null as unknown as ControlsType;
+        }
+        expect(c4.controls.foo.value).toEqual([1, 2, 3]);
       });
 
       it('from objects with ControlConfigs and validator lists', () => {
         const c = fb.group({foo: ['bar', [Validators.required, Validators.email]]});
         {
-          type ControlsType = {foo: FormControl<string|null>};
+          type ControlsType = {foo: FormControl<string | null>};
           let t: ControlsType = c.controls;
           let t1 = c.controls;
           t1 = null as unknown as ControlsType;
@@ -1081,10 +1289,11 @@ describe('Typed Class', () => {
       });
 
       it('from objects with ControlConfigs and explicit types', () => {
-        const c: FormGroup<{foo: FormControl<string|null>}> =
-            fb.group({foo: ['bar', [Validators.required, Validators.email]]});
+        const c: FormGroup<{foo: FormControl<string | null>}> = fb.group({
+          foo: ['bar', [Validators.required, Validators.email]],
+        });
         {
-          type ControlsType = {foo: FormControl<string|null>};
+          type ControlsType = {foo: FormControl<string | null>};
           let t: ControlsType = c.controls;
           let t1 = c.controls;
           t1 = null as unknown as ControlsType;
@@ -1095,7 +1304,7 @@ describe('Typed Class', () => {
         it('nullably', () => {
           const c = fb.group({foo: new FormControl('bar')});
           {
-            type ControlsType = {foo: FormControl<string|null>};
+            type ControlsType = {foo: FormControl<string | null>};
             let t: ControlsType = c.controls;
             let t1 = c.controls;
             t1 = null as unknown as ControlsType;
@@ -1115,7 +1324,7 @@ describe('Typed Class', () => {
         it('from objects with direct FormGroups', () => {
           const c = fb.group({foo: new FormGroup({baz: new FormControl('bar')})});
           {
-            type ControlsType = {foo: FormGroup<{baz: FormControl<string|null>}>};
+            type ControlsType = {foo: FormGroup<{baz: FormControl<string | null>}>};
             let t: ControlsType = c.controls;
             let t1 = c.controls;
             t1 = null as unknown as ControlsType;
@@ -1125,7 +1334,7 @@ describe('Typed Class', () => {
         it('from objects with builder FormGroups', () => {
           const c = fb.group({foo: fb.group({baz: 'bar'})});
           {
-            type ControlsType = {foo: FormGroup<{baz: FormControl<string|null>}>};
+            type ControlsType = {foo: FormGroup<{baz: FormControl<string | null>}>};
             let t: ControlsType = c.controls;
             let t1 = c.controls;
             t1 = null as unknown as ControlsType;
@@ -1135,7 +1344,7 @@ describe('Typed Class', () => {
         it('from objects with builder FormRecords', () => {
           const c = fb.group({foo: fb.record({baz: 'bar'})});
           {
-            type ControlsType = {foo: FormRecord<FormControl<string|null>>};
+            type ControlsType = {foo: FormRecord<FormControl<string | null>>};
             let t: ControlsType = c.controls;
             let t1 = c.controls;
             t1 = null as unknown as ControlsType;
@@ -1145,7 +1354,7 @@ describe('Typed Class', () => {
         it('from objects with builder FormArrays', () => {
           const c = fb.group({foo: fb.array(['bar'])});
           {
-            type ControlsType = {foo: FormArray<FormControl<string|null>>};
+            type ControlsType = {foo: FormArray<FormControl<string | null>>};
             let t: ControlsType = c.controls;
             let t1 = c.controls;
             t1 = null as unknown as ControlsType;
@@ -1158,7 +1367,7 @@ describe('Typed Class', () => {
       it('from objects with plain values', () => {
         const c = fb.record({foo: 'bar'});
         {
-          type ControlsType = {[key: string]: FormControl<string|null>};
+          type ControlsType = {[key: string]: FormControl<string | null>};
           let t: ControlsType = c.controls;
           let t1 = c.controls;
           t1 = null as unknown as ControlsType;
@@ -1168,7 +1377,7 @@ describe('Typed Class', () => {
       it('from objects with FormControlState', () => {
         const c = fb.record({foo: {value: 'bar', disabled: false}});
         {
-          type ControlsType = {[key: string]: FormControl<string|null>};
+          type ControlsType = {[key: string]: FormControl<string | null>};
           let t: ControlsType = c.controls;
           let t1 = c.controls;
           t1 = null as unknown as ControlsType;
@@ -1178,7 +1387,7 @@ describe('Typed Class', () => {
       it('from objects with ControlConfigs', () => {
         const c = fb.record({foo: ['bar']});
         {
-          type ControlsType = {[key: string]: FormControl<string|null>};
+          type ControlsType = {[key: string]: FormControl<string | null>};
           let t: ControlsType = c.controls;
           let t1 = c.controls;
           t1 = null as unknown as ControlsType;
@@ -1188,7 +1397,7 @@ describe('Typed Class', () => {
       it('from objects with ControlConfigs and validators', () => {
         const c = fb.record({foo: ['bar', Validators.required]});
         {
-          type ControlsType = {[key: string]: FormControl<string|null>};
+          type ControlsType = {[key: string]: FormControl<string | null>};
           let t: ControlsType = c.controls;
           let t1 = c.controls;
           t1 = null as unknown as ControlsType;
@@ -1198,7 +1407,7 @@ describe('Typed Class', () => {
       it('from objects with ControlConfigs and validator lists', () => {
         const c = fb.record({foo: ['bar', [Validators.required, Validators.email]]});
         {
-          type ControlsType = {[key: string]: FormControl<string|null>};
+          type ControlsType = {[key: string]: FormControl<string | null>};
           let t: ControlsType = c.controls;
           let t1 = c.controls;
           t1 = null as unknown as ControlsType;
@@ -1206,10 +1415,11 @@ describe('Typed Class', () => {
       });
 
       it('from objects with ControlConfigs and explicit types', () => {
-        const c: FormRecord<FormControl<string|null>> =
-            fb.record({foo: ['bar', [Validators.required, Validators.email]]});
+        const c: FormRecord<FormControl<string | null>> = fb.record({
+          foo: ['bar', [Validators.required, Validators.email]],
+        });
         {
-          type ControlsType = {[key: string]: FormControl<string|null>};
+          type ControlsType = {[key: string]: FormControl<string | null>};
           let t: ControlsType = c.controls;
           let t1 = c.controls;
           t1 = null as unknown as ControlsType;
@@ -1220,7 +1430,7 @@ describe('Typed Class', () => {
         it('nullably', () => {
           const c = fb.record({foo: new FormControl('bar')});
           {
-            type ControlsType = {[key: string]: FormControl<string|null>};
+            type ControlsType = {[key: string]: FormControl<string | null>};
             let t: ControlsType = c.controls;
             let t1 = c.controls;
             t1 = null as unknown as ControlsType;
@@ -1240,7 +1450,7 @@ describe('Typed Class', () => {
         it('from objects with builder FormGroups', () => {
           const c = fb.record({foo: fb.group({baz: 'bar'})});
           {
-            type ControlsType = {[key: string]: FormGroup<{baz: FormControl<string|null>}>};
+            type ControlsType = {[key: string]: FormGroup<{baz: FormControl<string | null>}>};
             let t: ControlsType = c.controls;
             let t1 = c.controls;
             t1 = null as unknown as ControlsType;
@@ -1250,7 +1460,7 @@ describe('Typed Class', () => {
         it('from objects with builder FormRecords', () => {
           const c = fb.record({foo: fb.record({baz: 'bar'})});
           {
-            type ControlsType = {[key: string]: FormRecord<FormControl<string|null>>};
+            type ControlsType = {[key: string]: FormRecord<FormControl<string | null>>};
             let t: ControlsType = c.controls;
             let t1 = c.controls;
             t1 = null as unknown as ControlsType;
@@ -1260,7 +1470,7 @@ describe('Typed Class', () => {
         it('from objects with builder FormArrays', () => {
           const c = fb.record({foo: fb.array(['bar'])});
           {
-            type ControlsType = {[key: string]: FormArray<FormControl<string|null>>};
+            type ControlsType = {[key: string]: FormArray<FormControl<string | null>>};
             let t: ControlsType = c.controls;
             let t1 = c.controls;
             t1 = null as unknown as ControlsType;
@@ -1273,7 +1483,7 @@ describe('Typed Class', () => {
       it('from arrays with plain values', () => {
         const c = fb.array(['foo']);
         {
-          type ControlsType = Array<FormControl<string|null>>;
+          type ControlsType = Array<FormControl<string | null>>;
           let t: ControlsType = c.controls;
           let t1 = c.controls;
           t1 = null as unknown as ControlsType;
@@ -1283,7 +1493,7 @@ describe('Typed Class', () => {
       it('from arrays with FormControlStates', () => {
         const c = fb.array([{value: 'foo', disabled: false}]);
         {
-          type ControlsType = Array<FormControl<string|null>>;
+          type ControlsType = Array<FormControl<string | null>>;
           let t: ControlsType = c.controls;
           let t1 = c.controls;
           t1 = null as unknown as ControlsType;
@@ -1293,7 +1503,7 @@ describe('Typed Class', () => {
       it('from arrays with ControlConfigs', () => {
         const c = fb.array([['foo']]);
         {
-          type ControlsType = Array<FormControl<string|null>>;
+          type ControlsType = Array<FormControl<string | null>>;
           let t: ControlsType = c.controls;
           let t1 = c.controls;
           t1 = null as unknown as ControlsType;
@@ -1304,7 +1514,7 @@ describe('Typed Class', () => {
         it('nullably', () => {
           const c = fb.array([new FormControl('foo')]);
           {
-            type ControlsType = Array<FormControl<string|null>>;
+            type ControlsType = Array<FormControl<string | null>>;
             let t: ControlsType = c.controls;
             let t1 = c.controls;
             t1 = null as unknown as ControlsType;
@@ -1325,7 +1535,7 @@ describe('Typed Class', () => {
       it('from arrays with direct FormArrays', () => {
         const c = fb.array([new FormArray([new FormControl('foo')])]);
         {
-          type ControlsType = Array<FormArray<FormControl<string|null>>>;
+          type ControlsType = Array<FormArray<FormControl<string | null>>>;
           let t: ControlsType = c.controls;
           let t1 = c.controls;
           t1 = null as unknown as ControlsType;
@@ -1335,7 +1545,7 @@ describe('Typed Class', () => {
       it('from arrays with builder FormArrays', () => {
         const c = fb.array([fb.array(['foo'])]);
         {
-          type ControlsType = Array<FormArray<FormControl<string|null>>>;
+          type ControlsType = Array<FormArray<FormControl<string | null>>>;
           let t: ControlsType = c.controls;
           let t1 = c.controls;
           t1 = null as unknown as ControlsType;
@@ -1345,7 +1555,7 @@ describe('Typed Class', () => {
       it('from arrays with builder FormGroups', () => {
         const c = fb.array([fb.group({bar: 'foo'})]);
         {
-          type ControlsType = Array<FormGroup<{bar: FormControl<string|null>}>>;
+          type ControlsType = Array<FormGroup<{bar: FormControl<string | null>}>>;
           let t: ControlsType = c.controls;
           let t1 = c.controls;
           t1 = null as unknown as ControlsType;
@@ -1355,7 +1565,7 @@ describe('Typed Class', () => {
       it('from arrays with builder FormRecords', () => {
         const c = fb.array([fb.record({bar: 'foo'})]);
         {
-          type ControlsType = Array<FormRecord<FormControl<string|null>>>;
+          type ControlsType = Array<FormRecord<FormControl<string | null>>>;
           let t: ControlsType = c.controls;
           let t1 = c.controls;
           t1 = null as unknown as ControlsType;
@@ -1372,39 +1582,43 @@ describe('Typed Class', () => {
             year: {value: 2022, disabled: false},
             month: fb.control('December', {}),
             day: fb.control(new FormControl(14)),
-          })
-        }),
-        dinnerOptions: fb.array([fb.group({
-          food: fb.group({
-            entree: ['Souffle', Validators.required],
-            dessert: 'also Souffle',
           }),
-          price: fb.group({
-            amount: new FormControl(50, {nonNullable: true}),
-            currency: 'USD',
-          })
-        })])
+        }),
+        dinnerOptions: fb.array([
+          fb.group({
+            food: fb.group({
+              entree: ['Souffle', Validators.required],
+              dessert: 'also Souffle',
+            }),
+            price: fb.group({
+              amount: new FormControl(50, {nonNullable: true}),
+              currency: 'USD',
+            }),
+          }),
+        ]),
       });
       {
         type ControlType = {
           venue: FormGroup<{
-            location: FormControl<string|null>,
+            location: FormControl<string | null>;
             date: FormGroup<{
-              year: FormControl<number|null>,
-              month: FormControl<string|null>,
-              day: FormControl<number|null>,
-            }>,
-          }>,
-          dinnerOptions: FormArray<FormGroup<{
-            food: FormGroup<{
-              entree: FormControl<string|null>,
-              dessert: FormControl<string|null>,
-            }>,
-            price: FormGroup<{
-              amount: FormControl<number>,
-              currency: FormControl<string|null>,
-            }>,
-          }>>,
+              year: FormControl<number | null>;
+              month: FormControl<string | null>;
+              day: FormControl<number | null>;
+            }>;
+          }>;
+          dinnerOptions: FormArray<
+            FormGroup<{
+              food: FormGroup<{
+                entree: FormControl<string | null>;
+                dessert: FormControl<string | null>;
+              }>;
+              price: FormGroup<{
+                amount: FormControl<number>;
+                currency: FormControl<string | null>;
+              }>;
+            }>
+          >;
         };
         let t: ControlType = myParty.controls;
         let d = myParty.controls.dinnerOptions;
@@ -1431,7 +1645,7 @@ describe('Typed Class', () => {
           t1 = null as unknown as RawValueType;
         }
         c.reset();
-        expect(c.value).not.toBeNull;
+        expect(c.value).not.toBeNull();
       });
     });
 
@@ -1482,6 +1696,15 @@ describe('Typed Class', () => {
         }
         c.reset();
         expect(c.value).toEqual({foo: 'bar'});
+
+        const c2 = fb.group({foo: [[1, 2, 3], Validators.required]});
+        {
+          type ControlsType = {foo: FormControl<number[]>};
+          let t: ControlsType = c2.controls;
+          let t1 = c2.controls;
+          t1 = null as unknown as ControlsType;
+        }
+        expect(c2.controls.foo.value).toEqual([1, 2, 3]);
       });
 
       it('from objects with ControlConfigs and validator lists', () => {
@@ -1497,8 +1720,9 @@ describe('Typed Class', () => {
       });
 
       it('from objects with ControlConfigs and explicit types', () => {
-        const c: FormGroup<{foo: FormControl<string>}> =
-            fb.group({foo: ['bar', [Validators.required, Validators.email]]});
+        const c: FormGroup<{foo: FormControl<string>}> = fb.group({
+          foo: ['bar', [Validators.required, Validators.email]],
+        });
         {
           type ControlsType = {foo: FormControl<string>};
           let t: ControlsType = c.controls;
@@ -1512,13 +1736,13 @@ describe('Typed Class', () => {
       it('without distributing union types', () => {
         const c = fb.group({foo: 'bar' as string | number});
         {
-          type ControlsType = {foo: FormControl<string|number>};
+          type ControlsType = {foo: FormControl<string | number>};
           let t: ControlsType = c.controls;
           let t1 = c.controls;
           t1 = null as unknown as ControlsType;
         }
         let fc = c.controls.foo;
-        fc = new FormControl<string|number>('', {nonNullable: true});
+        fc = new FormControl<string | number>('', {nonNullable: true});
       });
 
       describe('from objects with FormControls', () => {
@@ -1625,7 +1849,7 @@ describe('Untyped Class', () => {
     });
 
     it('is assignable with the typed version in both directions', () => {
-      const fc: FormControl<string|null> = new UntypedFormControl('');
+      const fc: FormControl<string | null> = new UntypedFormControl('');
       const ufc: UntypedFormControl = new FormControl('');
     });
 
@@ -1654,13 +1878,14 @@ describe('Untyped Class', () => {
     });
 
     it('is assignable with the typed version in both directions', () => {
-      const fc: FormGroup<{foo: FormControl<string|null>}> =
-          new UntypedFormGroup({foo: new UntypedFormControl('')});
+      const fc: FormGroup<{foo: FormControl<string | null>}> = new UntypedFormGroup({
+        foo: new UntypedFormControl(''),
+      });
       const ufc: UntypedFormGroup = new FormGroup({foo: new FormControl('')});
     });
 
     it('is assignable to FormGroup', () => {
-      let fg: FormGroup<{foo: FormControl<string|null>}>;
+      let fg: FormGroup<{foo: FormControl<string | null>}>;
       const ufg = new UntypedFormGroup({foo: new FormControl('bar')});
       fg = ufg;
     });
@@ -1676,13 +1901,14 @@ describe('Untyped Class', () => {
     it('should function like a FormArray with the default type', () => {
       const ufc = new UntypedFormArray([new FormControl('foo')]);
       expect(ufc.value).toEqual(['foo']);
-      ufc.valueChanges.subscribe(v => v);
+      ufc.valueChanges.subscribe((v) => v);
     });
 
     it('is assignable with the typed version in both directions', () => {
       const ufa: UntypedFormArray = new FormArray([new FormControl('')]);
-      const fa: FormArray<FormControl<string|null>> =
-          new UntypedFormArray([new UntypedFormControl('')]);
+      const fa: FormArray<FormControl<string | null>> = new UntypedFormArray([
+        new UntypedFormControl(''),
+      ]);
     });
   });
 

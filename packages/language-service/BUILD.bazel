@@ -1,35 +1,67 @@
-load("//tools:defaults.bzl", "pkg_npm", "ts_library")
+load("@aspect_rules_esbuild//esbuild:defs.bzl", "esbuild")
+load("//tools:defaults.bzl", "npm_package", "ts_config", "ts_project")
 
 package(default_visibility = ["//visibility:public"])
 
-ts_library(
-    name = "api",
-    srcs = [
-        "api.ts",
-        "index.ts",
-        "override_rename_ts_plugin.ts",
-    ],
-    prodmode_module = "commonjs",
+ts_config(
+    name = "tsconfig_build",
+    src = "tsconfig.json",
     deps = [
-        "@npm//@types/node",
-        "@npm//typescript",
+        "//:node_modules/@types/node",
+        "//packages:tsconfig_build",
     ],
 )
 
-pkg_npm(
-    name = "npm_package",
-    srcs = ["package.json"],
+ts_project(
+    name = "api",
+    srcs = [
+        "api.ts",
+    ],
+    deps = [
+        "//:node_modules/typescript",
+    ],
+)
+
+ts_project(
+    name = "factory_lib",
+    srcs = ["plugin-factory.ts"],
+    deps = [
+        ":api",
+        "//:node_modules/typescript",
+    ],
+)
+
+esbuild(
+    name = "factory_bundle",
+    entry_point = ":plugin-factory.ts",
+    external = ["@angular/language-service/bundles/language-service.js"],
+    format = "cjs",
+    deps = [":factory_lib"],
+)
+
+esbuild(
+    name = "api_bundle",
+    entry_point = ":api.ts",
+    format = "cjs",
+    deps = [":api"],
+)
+
+npm_package(
+    srcs = [
+        "index.d.ts",
+        "index.js",
+        "package.json",
+        ":api_bundle",
+        ":api_types",
+        ":factory_bundle",
+        ":factory_lib_types",
+        "//packages/language-service/bundles:language-service.js",
+    ],
+    package = "@angular/language-service",
     tags = [
         "release-with-framework",
     ],
     # Do not add more to this list.
     # Dependencies on the full npm_package cause long re-builds.
-    visibility = [
-        "//integration:__subpackages__",
-    ],
-    deps = [
-        ":api",
-        # min bundle is not used at the moment; omit from package to speed up build
-        "//packages/language-service/bundles:language-service.js",
-    ],
+    visibility = [],
 )

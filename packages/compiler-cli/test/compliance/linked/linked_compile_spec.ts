@@ -3,11 +3,12 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
+import babel, {PluginObj} from '@babel/core';
+
 import {needsLinking} from '../../../linker';
 import {createEs2015LinkerPlugin} from '../../../linker/babel';
-import {PluginObj, transformSync} from '../../../linker/babel/src/babel_core';
 import {AbsoluteFsPath, FileSystem} from '../../../src/ngtsc/file_system';
 import {ConsoleLogger, LogLevel} from '../../../src/ngtsc/logging';
 import {MapAndPath, RawSourceMap, SourceFileLoader} from '../../../src/ngtsc/sourcemaps';
@@ -16,7 +17,10 @@ import {ComplianceTest} from '../test_helpers/get_compliance_tests';
 import {parseGoldenPartial} from '../test_helpers/golden_partials';
 import {runTests} from '../test_helpers/test_runner';
 
-runTests('linked compile', linkPartials);
+runTests('linked compile', linkPartials, {
+  // TODO: Remove when https://github.com/angular/angular/issues/51647 is resolved.
+  skipMappingChecks: true,
+});
 
 /**
  * Link all the partials specified in the given `test`.
@@ -31,22 +35,23 @@ function linkPartials(fileSystem: FileSystem, test: ComplianceTest): CompileResu
   const linkerPlugin = createEs2015LinkerPlugin({
     fileSystem,
     logger,
-    sourceMapping: test.compilerOptions?.sourceMap === true,
-    ...test.angularCompilerOptions
+    sourceMapping: test.compilerOptions?.['sourceMap'] === true,
+    ...test.angularCompilerOptions,
   });
   const goldenPartialPath = fileSystem.resolve('/GOLDEN_PARTIAL.js');
   if (!fileSystem.exists(goldenPartialPath)) {
     throw new Error(
-        'Golden partial does not exist for this test\n' +
+      'Golden partial does not exist for this test\n' +
         'Try generating it by running:\n' +
-        `bazel run //packages/compiler-cli/test/compliance/test_cases:${
-            test.relativePath}.golden.update`);
+        `bazel run //packages/compiler-cli/test/compliance/test_cases:${test.relativePath}.golden`,
+    );
   }
   const partialFile = fileSystem.readFile(goldenPartialPath);
   const partialFiles = parseGoldenPartial(partialFile);
 
-  partialFiles.forEach(
-      f => safeWrite(fileSystem, fileSystem.resolve(builtDirectory, f.path), f.content));
+  partialFiles.forEach((f) =>
+    safeWrite(fileSystem, fileSystem.resolve(builtDirectory, f.path), f.content),
+  );
 
   for (const expectation of test.expectations) {
     for (const {generated} of expectation.files) {
@@ -56,11 +61,16 @@ function linkPartials(fileSystem: FileSystem, test: ComplianceTest): CompileResu
       }
       const source = fileSystem.readFile(fileName);
       const sourceMapPath = fileSystem.resolve(fileName + '.map');
-      const sourceMap = fileSystem.exists(sourceMapPath) ?
-          JSON.parse(fileSystem.readFile(sourceMapPath)) as RawSourceMap :
-          undefined;
-      const {linkedSource, linkedSourceMap} =
-          applyLinker(builtDirectory, fileName, source, sourceMap, linkerPlugin);
+      const sourceMap = fileSystem.exists(sourceMapPath)
+        ? (JSON.parse(fileSystem.readFile(sourceMapPath)) as RawSourceMap)
+        : undefined;
+      const {linkedSource, linkedSourceMap} = applyLinker(
+        builtDirectory,
+        fileName,
+        source,
+        sourceMap,
+        linkerPlugin,
+      );
 
       if (linkedSourceMap !== undefined) {
         const mapAndPath: MapAndPath = {map: linkedSourceMap, mapPath: sourceMapPath};
@@ -83,12 +93,16 @@ function linkPartials(fileSystem: FileSystem, test: ComplianceTest): CompileResu
  * @returns The file's source content, which has been transformed using the linker if necessary.
  */
 function applyLinker(
-    cwd: string, filename: string, source: string, sourceMap: RawSourceMap|undefined,
-    linkerPlugin: PluginObj): {linkedSource: string, linkedSourceMap: RawSourceMap|undefined} {
+  cwd: string,
+  filename: string,
+  source: string,
+  sourceMap: RawSourceMap | undefined,
+  linkerPlugin: PluginObj,
+): {linkedSource: string; linkedSourceMap: RawSourceMap | undefined} {
   if (!filename.endsWith('.js') || !needsLinking(filename, source)) {
     return {linkedSource: source, linkedSourceMap: sourceMap};
   }
-  const result = transformSync(source, {
+  const result = babel.transformSync(source, {
     cwd,
     filename,
     sourceMaps: !!sourceMap,

@@ -1,30 +1,13 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "baseBranches": ["main"],
-  "enabledManagers": ["npm", "bazel", "github-actions"],
-  "stopUpdatingLabel": "action: merge",
-  "rangeStrategy": "replace",
-  "pinDigests": true,
-  "semanticCommits": "enabled",
-  "semanticCommitScope": "",
-  "semanticCommitType": "build",
-  "dependencyDashboard": true,
-  "commitBody": "See associated pull request for more information.",
-  "separateMajorMinor": false,
-  "prHourlyLimit": 3,
-  "timezone": "America/Tijuana",
-  "lockFileMaintenance": {"enabled": true},
-  "labels": ["target: patch", "comp: build & ci", "action: review"],
+  "extends": [
+    "github>angular/dev-infra//renovate-presets/default.json5"
+  ],
+  "baseBranchPatterns": [
+    "main",
+    "21.0.x"
+  ],
   "ignoreDeps": [
-    "@angular/animations-12",
-    "@angular/common-12",
-    "@angular/core-12",
-    "@angular/forms-12",
-    "@angular/platform-browser-12",
-    "@angular/platform-browser-dynamic-12",
-    "@angular/platform-server-12",
-    "@angular/router-12",
-    "@types/node",
     "@types/selenium-webdriver",
     "angular-1.5",
     "angular-1.6",
@@ -34,71 +17,55 @@
     "angular-mocks-1.6",
     "angular-mocks-1.7",
     "angular-mocks-1.8",
-    "puppeteer",
-    "remark",
-    "remark-html",
+    "convert-source-map",
     "selenium-webdriver",
-    "watchr"
+    "systemjs",
+    "vscode-jsonrpc",
+    "vscode-languageclient",
+    "vscode-languageserver",
+    "vscode-languageserver-protocol"
   ],
   "packageRules": [
     {
-      "matchPackagePatterns": ["*"],
-      "matchUpdateTypes": ["minor", "patch"],
-      "groupName": "all non-major dependencies",
-      "schedule": ["after 10:00pm on monday", "before 04:00am on tuesday"]
+      "matchFileNames": [
+        "modules/ssr-benchmarks/package.json",
+        "vscode-ng-language-service/integration/pre_standalone_project/package.json"
+      ],
+      "enabled": false
     },
-
     {
-      "matchPackagePatterns": ["^@bazel/.*", "^build_bazel.*"],
-      "groupName": "bazel setup",
-      "schedule": ["at any time"]
-    },
-
-    {
-      "matchPackagePrefixes": ["@angular/", "angular/", "@angular-devkit", "@schematics/"],
-      "followTag": "next",
-      "groupName": "cross-repo Angular dependencies",
-      "schedule": ["at any time"]
-    },
-
-    {
-      "matchPackagePrefixes": ["@angular/", "angular/", "@angular-devkit", "@schematics/"],
-      "matchPaths": ["packages/**"],
-      "followTag": null
-    },
-
-    {
-      "matchPackagePrefixes": ["@babel/"],
-      "groupName": "babel dependencies"
-    },
-
-    {
-      "matchPackagePrefixes": ["@angular-eslint/", "@typescript-eslint/"],
-      "groupName": "eslint dependencies"
-    },
-
-    {
-      "matchPackageNames": ["typescript", "tslib"],
-      "groupName": "typescript dependencies"
-    },
-
-    {
-      "matchPaths": [".github/workflows/scorecard.yml"],
-      "groupName": "scorecard action dependencies",
-      "groupSlug": "scorecard-action"
-    },
-
-    {
-      "matchPaths": ["aio/tools/examples/shared/*"],
+      "matchManagers": [
+        "bazel",
+        "bazel-module",
+        "bazelisk",
+        "npm"
+      ],
       "postUpgradeTasks": {
-        "commands": ["yarn run sync-deps"],
-        "fileFilters": ["aio/tools/examples/shared/boilerplate/**"]
+        "commands": [
+          "git restore .npmrc",
+          "pnpm install --frozen-lockfile",
+          "pnpm bazel mod deps --lockfile_mode=update",
+          "pnpm bazel run //.github/actions/deploy-docs-site:main",
+          "pnpm bazel run //packages/common:base_currencies_file",
+          "pnpm bazel run //packages/common/locales:closure_locale_file",
+          "pnpm bazel run //packages/core:base_locale_file"
+        ],
+        "fileFilters": [
+          ".github/actions/deploy-docs-site/**/*",
+          "packages/**/*",
+          "MODULE.bazel.lock"
+        ],
+        "executionMode": "branch"
       }
     },
-
-    {"matchCurrentVersion": "0.0.0-PLACEHOLDER", "enabled": false},
-
-    {"matchPaths": ["integration/**"], "enabled": false},
-    {"matchPaths": ["integration/bazel_workspace_tests/**/WORKSPACE"], "enabled": true}
+    {
+      "enabled": false,
+      "matchDepNames": [
+        "tailwindcss"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ]
+    }
   ]
 }

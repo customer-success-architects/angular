@@ -3,79 +3,170 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
-/// <reference types="resize-observer-browser" />
-import {AfterViewInit, Component, Input, OnDestroy, OnInit, ViewChild} from '@angular/core';
-import {MatSlideToggleChange} from '@angular/material/slide-toggle';
-import {MatTabNav} from '@angular/material/tabs';
-import {Events, MessageBus, Route} from 'protocol';
-import {Subscription} from 'rxjs';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
+import {MatIcon} from '@angular/material/icon';
+import {MatMenu, MatMenuItem, MatMenuTrigger} from '@angular/material/menu';
+import {MatSlideToggle} from '@angular/material/slide-toggle';
+import {MatTabLink, MatTabNav, MatTabNavPanel} from '@angular/material/tabs';
+import {MatTooltip} from '@angular/material/tooltip';
+import {
+  ComponentExplorerView,
+  Events,
+  MessageBus,
+  Route,
+  SerializedInjector,
+  SerializedProviderRecord,
+} from '../../../../protocol';
 
-import {ApplicationEnvironment} from '../application-environment/index';
-import {Theme, ThemeService} from '../theme-service';
+import {ApplicationEnvironment, Frame, TOP_LEVEL_FRAME_ID} from '../application-environment/index';
+import {FrameManager} from '../application-services/frame_manager';
+import {ThemeService} from '../application-services/theme_service';
 
 import {DirectiveExplorerComponent} from './directive-explorer/directive-explorer.component';
+import {InjectorTreeComponent} from './injector-tree/injector-tree.component';
+import {ProfilerComponent} from './profiler/profiler.component';
+import {RouterTreeComponent} from './router-tree/router-tree.component';
+import {TransferStateComponent} from './transfer-state/transfer-state.component';
 import {TabUpdate} from './tab-update/index';
+import {Settings} from '../application-services/settings';
+import {SUPPORTED_APIS} from '../application-providers/supported_apis';
+
+type Tab = 'Components' | 'Profiler' | 'Router Tree' | 'Injector Tree' | 'Transfer State';
 
 @Component({
   selector: 'ng-devtools-tabs',
   templateUrl: './devtools-tabs.component.html',
   styleUrls: ['./devtools-tabs.component.scss'],
+  imports: [
+    MatTabNav,
+    MatTabNavPanel,
+    MatTooltip,
+    MatIcon,
+    MatMenu,
+    MatMenuItem,
+    MatMenuTrigger,
+    MatTabLink,
+    DirectiveExplorerComponent,
+    ProfilerComponent,
+    RouterTreeComponent,
+    InjectorTreeComponent,
+    TransferStateComponent,
+    MatSlideToggle,
+  ],
+  providers: [TabUpdate],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class DevToolsTabsComponent implements OnInit, OnDestroy, AfterViewInit {
-  @Input() angularVersion: string|undefined = undefined;
-  @ViewChild(DirectiveExplorerComponent) directiveExplorer: DirectiveExplorerComponent;
-  @ViewChild('navBar', {static: true}) navbar: MatTabNav;
+export class DevToolsTabsComponent {
+  readonly frameManager = inject(FrameManager);
+  readonly themeService = inject(ThemeService);
+  private readonly tabUpdate = inject(TabUpdate);
+  private readonly messageBus = inject<MessageBus<Events>>(MessageBus);
+  private readonly settings = inject(Settings);
+  protected readonly applicationEnvironment = inject(ApplicationEnvironment);
+  protected readonly supportedApis = inject(SUPPORTED_APIS);
 
-  activeTab: 'Components'|'Profiler'|'Router Tree' = 'Components';
+  readonly isHydrationEnabled = input(false);
+  readonly frameSelected = output<Frame>();
 
-  inspectorRunning = false;
-  routerTreeEnabled = false;
-  showCommentNodes = false;
+  readonly inspectorRunning = signal(false);
 
-  private _currentThemeSubscription: Subscription;
-  currentTheme: Theme;
+  protected readonly showCommentNodes = this.settings.showCommentNodes;
+  protected readonly routerGraphEnabled = this.settings.routerGraphEnabled;
+  protected readonly timingAPIEnabled = this.settings.timingAPIEnabled;
+  protected readonly signalGraphEnabled = () => this.supportedApis().signals;
+  protected readonly transferStateEnabled = this.settings.transferStateEnabled;
+  protected readonly activeTab = this.settings.activeTab;
 
-  routes: Route[] = [];
+  readonly componentExplorerView = signal<ComponentExplorerView | null>(null);
+  readonly providers = signal<SerializedProviderRecord[]>([]);
+  readonly routes = signal<Route[]>([]);
 
-  constructor(
-      public tabUpdate: TabUpdate, public themeService: ThemeService,
-      private _messageBus: MessageBus<Events>,
-      private _applicationEnvironment: ApplicationEnvironment) {}
+  readonly tabs = computed<Tab[]>(() => {
+    const supportedApis = this.supportedApis();
+    const tabs: Tab[] = ['Components'];
 
-  ngOnInit(): void {
-    this._currentThemeSubscription =
-        this.themeService.currentTheme.subscribe((theme) => (this.currentTheme = theme));
+    if (supportedApis.profiler) {
+      tabs.push('Profiler');
+    }
+    if (supportedApis.dependencyInjection) {
+      tabs.push('Injector Tree');
+    }
+    if (this.routerGraphEnabled() && this.routes().length > 0) {
+      tabs.push('Router Tree');
+    }
+    if (supportedApis.transferState && this.transferStateEnabled()) {
+      tabs.push('Transfer State');
+    }
 
-    this._messageBus.on('updateRouterTree', (routes) => {
-      this.routes = routes || [];
+    return tabs;
+  });
+
+  profilingNotificationsSupported = Boolean(
+    (window.chrome?.devtools as any)?.performance?.onProfilingStarted,
+  );
+  TOP_LEVEL_FRAME_ID = TOP_LEVEL_FRAME_ID;
+
+  readonly angularVersion = input<string | undefined>();
+  readonly majorAngularVersion = computed(() => {
+    const version = this.angularVersion();
+    if (!version) {
+      return -1;
+    }
+    return parseInt(version.toString().split('.')[0], 10);
+  });
+
+  readonly extensionVersion = signal('dev-build');
+
+  constructor() {
+    this.messageBus.on('updateRouterTree', (routes: any[]) => {
+      this.routes.set(routes || []);
     });
+
+    // Change the tab to Components, if an element is selected via the inspector.
+    this.messageBus.on('selectComponent', () => {
+      if (this.activeTab() !== 'Components') {
+        this.changeTab('Components');
+      }
+    });
+
+    this.messageBus.on('latestComponentExplorerView', (view: ComponentExplorerView) => {
+      this.componentExplorerView.set(view);
+    });
+
+    this.messageBus.on(
+      'latestInjectorProviders',
+      (_: SerializedInjector, providers: SerializedProviderRecord[]) => {
+        this.providers.set(providers);
+      },
+    );
+
+    if (typeof chrome !== 'undefined' && chrome.runtime !== undefined) {
+      this.extensionVersion.set(chrome.runtime.getManifest().version);
+    }
   }
 
-  get tabs(): string[] {
-    const alwaysShown = ['Components', 'Profiler'];
-    return this.routes.length === 0 ? alwaysShown : [...alwaysShown, 'Router Tree'];
+  emitSelectedFrame(event: Event): void {
+    const frameId = (event.target as HTMLInputElement).value;
+    const frame = this.frameManager.frames().find((frame) => frame.id === parseInt(frameId, 10));
+    this.frameSelected.emit(frame!);
   }
 
-  ngAfterViewInit(): void {
-    this.navbar.disablePagination = true;
-  }
-
-  ngOnDestroy(): void {
-    this._currentThemeSubscription.unsubscribe();
-  }
-
-  get latestSHA(): string {
-    return this._applicationEnvironment.environment.LATEST_SHA.slice(0, 8);
-  }
-
-  changeTab(tab: 'Profiler'|'Components'|'Router Tree'): void {
-    this.activeTab = tab;
-    this.tabUpdate.notify();
+  changeTab(tab: Tab): void {
+    this.activeTab.set(tab);
+    this.tabUpdate.notify(tab);
     if (tab === 'Router Tree') {
-      this._messageBus.emit('getRoutes');
+      this.messageBus.emit('getRoutes');
     }
   }
 
@@ -85,21 +176,36 @@ export class DevToolsTabsComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   emitInspectorEvent(): void {
-    if (this.inspectorRunning) {
-      this._messageBus.emit('inspectorStart');
-      this.changeTab('Components');
+    if (this.inspectorRunning()) {
+      this.messageBus.emit('inspectorStart');
     } else {
-      this._messageBus.emit('inspectorEnd');
-      this._messageBus.emit('removeHighlightOverlay');
+      this.messageBus.emit('inspectorEnd');
+      this.messageBus.emit('removeHighlightOverlay');
     }
   }
 
   toggleInspectorState(): void {
-    this.inspectorRunning = !this.inspectorRunning;
+    this.inspectorRunning.update((state) => !state);
   }
 
-  toggleTimingAPI(change: MatSlideToggleChange): void {
-    change.checked ? this._messageBus.emit('enableTimingAPI') :
-                     this._messageBus.emit('disableTimingAPI');
+  toggleTimingAPI(): void {
+    this.timingAPIEnabled.update((state) => !state);
+    this.timingAPIEnabled()
+      ? this.messageBus.emit('enableTimingAPI')
+      : this.messageBus.emit('disableTimingAPI');
+  }
+
+  protected setRouterGraph(enabled: boolean): void {
+    this.routerGraphEnabled.set(enabled);
+    if (!enabled) {
+      this.activeTab.set('Components');
+    }
+  }
+
+  protected setTransferStateTab(enabled: boolean): void {
+    this.transferStateEnabled.set(enabled);
+    if (!enabled && this.activeTab() === 'Transfer State') {
+      this.activeTab.set('Components');
+    }
   }
 }

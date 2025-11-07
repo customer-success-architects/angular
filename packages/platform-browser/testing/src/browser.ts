@@ -3,28 +3,21 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
-import {APP_ID, createPlatformFactory, NgModule, NgZone, PLATFORM_INITIALIZER, platformCore, StaticProvider} from '@angular/core';
-import {BrowserModule, ɵBrowserDomAdapter as BrowserDomAdapter} from '@angular/platform-browser';
-
-import {BrowserDetection, createNgZone} from './browser_util';
-
-function initBrowserTests() {
-  BrowserDomAdapter.makeCurrent();
-  BrowserDetection.setup();
-}
-
-const _TEST_BROWSER_PLATFORM_PROVIDERS: StaticProvider[] =
-    [{provide: PLATFORM_INITIALIZER, useValue: initBrowserTests, multi: true}];
+import {ɵprovideFakePlatformNavigation} from '@angular/common/testing';
+import {APP_ID, createPlatformFactory, NgModule, StaticProvider, PlatformRef} from '@angular/core';
+import {TestComponentRenderer} from '@angular/core/testing';
+import {BrowserModule, platformBrowser} from '../../index';
+import {DOMTestComponentRenderer} from './dom_test_component_renderer';
 
 /**
  * Platform for testing
  *
  * @publicApi
  */
-export const platformBrowserTesting =
-    createPlatformFactory(platformCore, 'browserTesting', _TEST_BROWSER_PLATFORM_PROVIDERS);
+export const platformBrowserTesting: (extraProviders?: StaticProvider[]) => PlatformRef =
+  createPlatformFactory(platformBrowser, 'browserTesting');
 
 /**
  * NgModule for testing.
@@ -35,8 +28,8 @@ export const platformBrowserTesting =
   exports: [BrowserModule],
   providers: [
     {provide: APP_ID, useValue: 'a'},
-    {provide: NgZone, useFactory: createNgZone},
-  ]
+    ɵprovideFakePlatformNavigation(),
+    {provide: TestComponentRenderer, useClass: DOMTestComponentRenderer},
+  ],
 })
-export class BrowserTestingModule {
-}
+export class BrowserTestingModule {}

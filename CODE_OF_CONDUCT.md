@@ -2,7 +2,7 @@
 
 ## Our Pledge
 
-In the interest of fostering an safe and welcoming environment, we as
+In the interest of fostering a safe and welcoming environment, we as
 the Angular team pledge to make participation in our project and
 our community a harassment-free experience for everyone, regardless of age, body
 size, disability, ethnicity, sex characteristics, gender identity, gender expression,
@@ -14,20 +14,20 @@ appearance, race, religion, or sexual identity and orientation.
 Examples of behavior that contributes to creating a positive environment
 include:
 
-* Use welcoming and inclusive language
-* Respect each other
-* Provide and gracefully accept constructive criticism
-* Show empathy towards other community members
+- Use welcoming and inclusive language
+- Respect each other
+- Provide and gracefully accept constructive criticism
+- Show empathy towards other community members
 
 Examples of unacceptable behavior by participants include:
 
-* Trolling, insulting/derogatory comments, and personal or political attacks
-* Public or private harassment
-* Publishing others' private information, such as a physical or electronic
+- Trolling, insulting/derogatory comments, and personal or political attacks
+- Public or private harassment
+- Publishing others' private information, such as a physical or electronic
   address, without explicit permission
-* The use of sexualized language or imagery
-* Unwelcome sexual attention or advances
-* Other conduct which could reasonably be considered inappropriate in a
+- The use of sexualized language or imagery
+- Unwelcome sexual attention or advances
+- Other conduct which could reasonably be considered inappropriate in a
   professional setting
 
 ## Our Responsibilities
@@ -64,6 +64,14 @@ channels, or other actions as deemed appropriate by the Angular team.
 Angular maintainers who do not follow or enforce the Code of Conduct in good
 faith may face temporary or permanent repercussions as determined by other
 members of the project's leadership.
+
+### Appeal
+
+If you are banned you may contest the decision. To do so email conduct@angular.io with the subject line "Repeal Ban for {{your name here}}" and body with the responses to the following:
+
+- Why do you believe you did not violate the Code of Conduct?
+- Were other factors involved in this situation the leadership team may have been unaware of?
+- Why do you wish to be a part of the Angular community?
 
 ## Attribution
 

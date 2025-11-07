@@ -3,11 +3,10 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
 import {SanitizerFn} from './sanitization';
-
 
 /**
  * Stores a list of nodes which need to be removed.
@@ -35,7 +34,7 @@ export interface I18nRemoveOpCodes extends Array<number> {
  * 3322 2222 2222 1111 1111 1110 0000 0000
  * 1098 7654 3210 9876 5432 1098 7654 3210
  *
- * ```
+ * ```ts
  * var parent = lView[opCode >>> SHIFT_PARENT];
  * var refNode = lView[((opCode & MASK_REF) >>> SHIFT_REF)];
  * var instruction = opCode & MASK_OPCODE;
@@ -44,6 +43,8 @@ export interface I18nRemoveOpCodes extends Array<number> {
  * See: `I18nCreateOpCodes` for example of usage.
  */
 export const enum IcuCreateOpCode {
+  /* tslint:disable:no-duplicate-enum-values */
+
   /**
    * Stores shift amount for bits 17-3 that contain reference index.
    */
@@ -73,8 +74,8 @@ export const enum IcuCreateOpCode {
    * Instruction to set the attribute of a node.
    */
   Attr = 0b1,
+  /* tslint:enable:no-duplicate-enum-values */
 }
-
 
 /**
  * Array storing OpCode for dynamically creating `i18n` blocks.
@@ -121,12 +122,14 @@ export const enum IcuCreateOpCode {
  * ];
  * ```
  */
-export interface IcuCreateOpCodes extends Array<number|string|ELEMENT_MARKER|ICU_MARKER|null>,
-                                          I18nDebug {
+export interface IcuCreateOpCodes
+  extends Array<number | string | ELEMENT_MARKER | ICU_MARKER | null>,
+    I18nDebug {
   __brand__: 'I18nCreateOpCodes';
 }
 
 export const enum I18nUpdateOpCode {
+  /* tslint:disable:no-duplicate-enum-values */
   /**
    * Stores shift amount for bits 17-2 that contain reference index.
    */
@@ -152,6 +155,7 @@ export const enum I18nUpdateOpCode {
    * Instruction to update the current ICU case.
    */
   IcuUpdate = 0b11,
+  /* tslint:enable:no-duplicate-enum-values */
 }
 
 /**
@@ -160,7 +164,7 @@ export const enum I18nUpdateOpCode {
  * See `I18nMutateOpCodes` documentation.
  */
 export const ELEMENT_MARKER: ELEMENT_MARKER = {
-  marker: 'element'
+  marker: 'element',
 };
 export interface ELEMENT_MARKER {
   marker: 'element';
@@ -172,7 +176,7 @@ export interface ELEMENT_MARKER {
  * See `I18nMutateOpCodes` documentation.
  */
 export const ICU_MARKER: ICU_MARKER = {
-  marker: 'ICU'
+  marker: 'ICU',
 };
 
 export interface ICU_MARKER {
@@ -200,7 +204,7 @@ export interface I18nDebug {
  * The number is shifted and encoded according to `I18nCreateOpCode`
  *
  * Pseudocode:
- * ```
+ * ```ts
  * const i18nCreateOpCodes = [
  *   10 << I18nCreateOpCode.SHIFT, "Text Node add to DOM",
  *   11 << I18nCreateOpCode.SHIFT | I18nCreateOpCode.COMMENT, "Comment Node add to DOM",
@@ -223,7 +227,7 @@ export interface I18nDebug {
  * }
  * ```
  */
-export interface I18nCreateOpCodes extends Array<number|string>, I18nDebug {
+export interface I18nCreateOpCodes extends Array<number | string>, I18nDebug {
   __brand__: 'I18nCreateOpCodes';
 }
 
@@ -231,6 +235,7 @@ export interface I18nCreateOpCodes extends Array<number|string>, I18nDebug {
  * See `I18nCreateOpCodes`
  */
 export enum I18nCreateOpCode {
+  /* tslint:disable:no-duplicate-enum-values */
   /**
    * Number of bits to shift index so that it can be combined with the `APPEND_EAGERLY` and
    * `COMMENT`.
@@ -246,8 +251,8 @@ export enum I18nCreateOpCode {
    * If set the node should be comment (rather than a text) node.
    */
   COMMENT = 0b10,
+  /* tslint:enable:no-duplicate-enum-values */
 }
-
 
 /**
  * Stores DOM operations which need to be applied to update DOM render tree due to changes in
@@ -321,7 +326,7 @@ export enum I18nCreateOpCode {
  * ```
  *
  */
-export interface I18nUpdateOpCodes extends Array<string|number|SanitizerFn|null>, I18nDebug {
+export interface I18nUpdateOpCodes extends Array<string | number | SanitizerFn | null>, I18nDebug {
   __brand__: 'I18nUpdateOpCodes';
 }
 
@@ -341,6 +346,17 @@ export interface TI18n {
    * DOM are required.
    */
   update: I18nUpdateOpCodes;
+
+  /**
+   * An AST representing the translated message. This is used for hydration (and serialization),
+   * while the Update and Create OpCodes are used at runtime.
+   */
+  ast: Array<I18nNode>;
+
+  /**
+   * Index of a parent TNode, which represents a host node for this i18n block.
+   */
+  parentTNodeIndex: number;
 }
 
 /**
@@ -399,10 +415,6 @@ export interface TIcu {
   update: I18nUpdateOpCodes[];
 }
 
-// Note: This hack is necessary so we don't erroneously get a circular dependency
-// failure based on types.
-export const unusedValueExportToPlacateAjd = 1;
-
 /**
  * Parsed ICU expression
  */
@@ -410,5 +422,81 @@ export interface IcuExpression {
   type: IcuType;
   mainBinding: number;
   cases: string[];
-  values: (string|IcuExpression)[][];
+  values: (string | IcuExpression)[][];
+}
+
+// A parsed I18n AST Node
+export type I18nNode = I18nTextNode | I18nElementNode | I18nICUNode | I18nPlaceholderNode;
+
+/**
+ * Represents a block of text in a translation, such as `Hello, {{ name }}!`.
+ */
+export interface I18nTextNode {
+  /** The AST node kind */
+  kind: I18nNodeKind.TEXT;
+
+  /** The LView index */
+  index: number;
+}
+
+/**
+ * Represents a simple DOM element in a translation, such as `<div>...</div>`
+ */
+export interface I18nElementNode {
+  /** The AST node kind */
+  kind: I18nNodeKind.ELEMENT;
+
+  /** The LView index */
+  index: number;
+
+  /** The child nodes */
+  children: Array<I18nNode>;
+}
+
+/**
+ * Represents an ICU in a translation.
+ */
+export interface I18nICUNode {
+  /** The AST node kind */
+  kind: I18nNodeKind.ICU;
+
+  /** The LView index */
+  index: number;
+
+  /** The branching cases */
+  cases: Array<Array<I18nNode>>;
+
+  /** The LView index that stores the active case */
+  currentCaseLViewIndex: number;
+}
+
+/**
+ * Represents special content that is embedded into the translation. This can
+ * either be a special built-in element, such as <ng-container> and <ng-content>,
+ * or it can be a sub-template, for example, from a structural directive.
+ */
+export interface I18nPlaceholderNode {
+  /** The AST node kind */
+  kind: I18nNodeKind.PLACEHOLDER;
+
+  /** The LView index */
+  index: number;
+
+  /** The child nodes */
+  children: Array<I18nNode>;
+
+  /** The placeholder type */
+  type: I18nPlaceholderType;
+}
+
+export const enum I18nPlaceholderType {
+  ELEMENT,
+  SUBTEMPLATE,
+}
+
+export const enum I18nNodeKind {
+  TEXT,
+  ELEMENT,
+  PLACEHOLDER,
+  ICU,
 }

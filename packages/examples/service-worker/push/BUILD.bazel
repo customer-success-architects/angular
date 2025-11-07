@@ -1,58 +1,69 @@
+load("@aspect_rules_esbuild//esbuild:defs.bzl", "esbuild")
+load("//tools:defaults.bzl", "http_server", "ng_project", "protractor_web_test_suite", "ts_project")
+
 package(default_visibility = ["//visibility:public"])
 
-load("//tools:defaults.bzl", "ng_module", "protractor_web_test_suite", "ts_devserver", "ts_library")
-
-ng_module(
+ng_project(
     name = "sw_push_examples",
     srcs = glob(
         ["**/*.ts"],
         exclude = ["**/*_spec.ts"],
     ),
-    generate_ve_shims = True,
     deps = [
+        "//:node_modules/zone.js",
         "//packages/core",
         "//packages/platform-browser",
-        "//packages/platform-browser-dynamic",
         "//packages/service-worker",
     ],
 )
 
-ts_library(
+ts_project(
     name = "sw_push_e2e_tests_lib",
     testonly = True,
     srcs = glob(["**/e2e_test/*_spec.ts"]),
-    tsconfig = "//packages/examples:tsconfig-e2e.json",
+    tsconfig = "//packages/examples:tsconfig_e2e",
     deps = [
+        "//:node_modules/@types/jasminewd2",
+        "//:node_modules/protractor",
         "//packages/examples/test-utils",
         "//packages/private/testing",
-        "@npm//@types/jasminewd2",
-        "@npm//protractor",
     ],
 )
 
-ts_devserver(
+esbuild(
+    name = "app_bundle",
+    config = {
+        "resolveExtensions": [".js"],
+    },
+    entry_point = ":main.ts",
+    tsconfig = "//packages/examples:tsconfig_build",
+    deps = [
+        ":sw_push_examples",
+        "//packages/examples:tsconfig_build",
+    ],
+)
+
+http_server(
     name = "devserver",
-    additional_root_paths = ["angular/packages/examples"],
-    bootstrap = [
-        "//packages/zone.js/bundles:zone.umd.js",
+    srcs = [
         "ngsw-worker.js",
+        "//packages/examples:index.html",
     ],
-    entry_module = "@angular/examples/service-worker/push/main",
-    port = 4200,
-    scripts = [
-        "//tools/rxjs:rxjs_umd_modules",
-        "@npm//:node_modules/tslib/tslib.js",
-    ],
-    static_files = ["//packages/examples:index.html"],
-    deps = [":sw_push_examples"],
+    additional_root_paths = ["_main/packages/examples"],
+    deps = [":app_bundle"],
 )
 
 protractor_web_test_suite(
     name = "protractor_tests",
-    on_prepare = "start-server.js",
     server = ":devserver",
     deps = [
         ":sw_push_e2e_tests_lib",
-        "@npm//selenium-webdriver",
     ],
+)
+
+filegroup(
+    name = "files_for_docgen",
+    srcs = glob([
+        "**/*.ts",
+    ]),
 )

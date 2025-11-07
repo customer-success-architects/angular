@@ -3,10 +3,17 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
-import {AST, SafeCall, SafeKeyedRead, SafePropertyRead, TmplAstNode} from '@angular/compiler';
+import {
+  AST,
+  KeyedRead,
+  SafeCall,
+  SafeKeyedRead,
+  SafePropertyRead,
+  TmplAstNode,
+} from '@angular/compiler';
 import ts from 'typescript';
 
 import {NgCompilerOptions} from '../../../../core/api';
@@ -20,16 +27,31 @@ import {TemplateCheckFactory, TemplateCheckWithVisitor, TemplateContext} from '.
  * This check should only be use if `strictNullChecks` is enabled,
  * otherwise it would produce inaccurate results.
  */
-class OptionalChainNotNullableCheck extends
-    TemplateCheckWithVisitor<ErrorCode.OPTIONAL_CHAIN_NOT_NULLABLE> {
+class OptionalChainNotNullableCheck extends TemplateCheckWithVisitor<ErrorCode.OPTIONAL_CHAIN_NOT_NULLABLE> {
   override code = ErrorCode.OPTIONAL_CHAIN_NOT_NULLABLE as const;
 
+  constructor(private readonly noUncheckedIndexedAccess: boolean) {
+    super();
+  }
+
   override visitNode(
-      ctx: TemplateContext<ErrorCode.OPTIONAL_CHAIN_NOT_NULLABLE>, component: ts.ClassDeclaration,
-      node: TmplAstNode|AST): NgTemplateDiagnostic<ErrorCode.OPTIONAL_CHAIN_NOT_NULLABLE>[] {
-    if (!(node instanceof SafeCall) && !(node instanceof SafePropertyRead) &&
-        !(node instanceof SafeKeyedRead))
+    ctx: TemplateContext<ErrorCode.OPTIONAL_CHAIN_NOT_NULLABLE>,
+    component: ts.ClassDeclaration,
+    node: TmplAstNode | AST,
+  ): NgTemplateDiagnostic<ErrorCode.OPTIONAL_CHAIN_NOT_NULLABLE>[] {
+    if (
+      !(node instanceof SafeCall) &&
+      !(node instanceof SafePropertyRead) &&
+      !(node instanceof SafeKeyedRead)
+    ) {
       return [];
+    }
+
+    // When `noUncheckedIndexedAccess` is disabled, an indexed access is not checked
+    // and may result in `undefined`.
+    if (node.receiver instanceof KeyedRead && !this.noUncheckedIndexedAccess) {
+      return [];
+    }
 
     const symbolLeft = ctx.templateTypeChecker.getSymbolOfNode(node.receiver, component);
     if (symbolLeft === null || symbolLeft.kind !== SymbolKind.Expression) {
@@ -51,35 +73,40 @@ class OptionalChainNotNullableCheck extends
     if (symbol.kind !== SymbolKind.Expression) {
       return [];
     }
-    const templateMapping =
-        ctx.templateTypeChecker.getTemplateMappingAtTcbLocation(symbol.tcbLocation);
+    const templateMapping = ctx.templateTypeChecker.getSourceMappingAtTcbLocation(
+      symbol.tcbLocation,
+    );
     if (templateMapping === null) {
       return [];
     }
-    const advice = node instanceof SafePropertyRead ?
-        `the '?.' operator can be replaced with the '.' operator` :
-        `the '?.' operator can be safely removed`;
+    const advice =
+      node instanceof SafePropertyRead
+        ? `the '?.' operator can be replaced with the '.' operator`
+        : `the '?.' operator can be safely removed`;
     const diagnostic = ctx.makeTemplateDiagnostic(
-        templateMapping.span,
-        `The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore ${
-            advice}.`);
+      templateMapping.span,
+      `The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore ${advice}.`,
+    );
     return [diagnostic];
   }
 }
 
 export const factory: TemplateCheckFactory<
-    ErrorCode.OPTIONAL_CHAIN_NOT_NULLABLE,
-    ExtendedTemplateDiagnosticName.OPTIONAL_CHAIN_NOT_NULLABLE> = {
+  ErrorCode.OPTIONAL_CHAIN_NOT_NULLABLE,
+  ExtendedTemplateDiagnosticName.OPTIONAL_CHAIN_NOT_NULLABLE
+> = {
   code: ErrorCode.OPTIONAL_CHAIN_NOT_NULLABLE,
   name: ExtendedTemplateDiagnosticName.OPTIONAL_CHAIN_NOT_NULLABLE,
   create: (options: NgCompilerOptions) => {
     // Require `strictNullChecks` to be enabled.
     const strictNullChecks =
-        options.strictNullChecks === undefined ? !!options.strict : !!options.strictNullChecks;
+      options.strictNullChecks === undefined ? !!options.strict : !!options.strictNullChecks;
     if (!strictNullChecks) {
       return null;
     }
 
-    return new OptionalChainNotNullableCheck();
+    const noUncheckedIndexedAccess = !!options.noUncheckedIndexedAccess;
+
+    return new OptionalChainNotNullableCheck(noUncheckedIndexedAccess);
   },
 };

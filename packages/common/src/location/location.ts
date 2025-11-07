@@ -3,11 +3,11 @@
  * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://angular.io/license
+ * found in the LICENSE file at https://angular.dev/license
  */
 
-import {EventEmitter, Injectable, OnDestroy, ɵɵinject} from '@angular/core';
-import {SubscriptionLike} from 'rxjs';
+import {Injectable, OnDestroy, ɵɵinject} from '@angular/core';
+import {Subject, SubscriptionLike} from 'rxjs';
 
 import {LocationStrategy} from './location_strategy';
 import {joinWithSlash, normalizeQueryParams, stripTrailingSlash} from './util';
@@ -43,8 +43,7 @@ export interface PopStateEvent {
  *
  * ### Example
  *
- * <code-example path='common/location/ts/path_location_component.ts'
- * region='LocationComponent'></code-example>
+ * {@example common/location/ts/path_location_component.ts region='LocationComponent'}
  *
  * @publicApi
  */
@@ -55,22 +54,28 @@ export interface PopStateEvent {
 })
 export class Location implements OnDestroy {
   /** @internal */
-  _subject: EventEmitter<any> = new EventEmitter();
+  _subject = new Subject<PopStateEvent>();
   /** @internal */
-  _baseHref: string;
+  _basePath: string;
   /** @internal */
   _locationStrategy: LocationStrategy;
   /** @internal */
   _urlChangeListeners: ((url: string, state: unknown) => void)[] = [];
   /** @internal */
-  _urlChangeSubscription: SubscriptionLike|null = null;
+  _urlChangeSubscription: SubscriptionLike | null = null;
 
   constructor(locationStrategy: LocationStrategy) {
     this._locationStrategy = locationStrategy;
-    const browserBaseHref = this._locationStrategy.getBaseHref();
-    this._baseHref = stripTrailingSlash(_stripIndexHtml(browserBaseHref));
+    const baseHref = this._locationStrategy.getBaseHref();
+    // Note: This class's interaction with base HREF does not fully follow the rules
+    // outlined in the spec https://www.freesoft.org/CIE/RFC/1808/18.htm.
+    // Instead of trying to fix individual bugs with more and more code, we should
+    // investigate using the URL constructor and providing the base as a second
+    // argument.
+    // https://developer.mozilla.org/en-US/docs/Web/API/URL/URL#parameters
+    this._basePath = _stripOrigin(stripTrailingSlash(_stripIndexHtml(baseHref)));
     this._locationStrategy.onPopState((ev) => {
-      this._subject.emit({
+      this._subject.next({
         'url': this.path(true),
         'pop': true,
         'state': ev.state,
@@ -79,7 +84,7 @@ export class Location implements OnDestroy {
     });
   }
 
-  /** @nodoc */
+  /** @docs-private */
   ngOnDestroy(): void {
     this._urlChangeSubscription?.unsubscribe();
     this._urlChangeListeners = [];
@@ -127,7 +132,7 @@ export class Location implements OnDestroy {
    * @returns The normalized URL string.
    */
   normalize(url: string): string {
-    return Location.stripTrailingSlash(_stripBaseHref(this._baseHref, _stripIndexHtml(url)));
+    return Location.stripTrailingSlash(_stripBasePath(this._basePath, _stripIndexHtml(url)));
   }
 
   /**
@@ -160,7 +165,9 @@ export class Location implements OnDestroy {
   go(path: string, query: string = '', state: any = null): void {
     this._locationStrategy.pushState(state, '', path, query);
     this._notifyUrlChangeListeners(
-        this.prepareExternalUrl(path + normalizeQueryParams(query)), state);
+      this.prepareExternalUrl(path + normalizeQueryParams(query)),
+      state,
+    );
   }
 
   /**
@@ -174,7 +181,9 @@ export class Location implements OnDestroy {
   replaceState(path: string, query: string = '', state: any = null): void {
     this._locationStrategy.replaceState(state, '', path, query);
     this._notifyUrlChangeListeners(
-        this.prepareExternalUrl(path + normalizeQueryParams(query)), state);
+      this.prepareExternalUrl(path + normalizeQueryParams(query)),
+      state,
+    );
   }
 
   /**
@@ -217,11 +226,9 @@ export class Location implements OnDestroy {
   onUrlChange(fn: (url: string, state: unknown) => void): VoidFunction {
     this._urlChangeListeners.push(fn);
 
-    if (!this._urlChangeSubscription) {
-      this._urlChangeSubscription = this.subscribe(v => {
-        this._notifyUrlChangeListeners(v.url, v.state);
-      });
-    }
+    this._urlChangeSubscription ??= this.subscribe((v) => {
+      this._notifyUrlChangeListeners(v.url, v.state);
+    });
 
     return () => {
       const fnIndex = this._urlChangeListeners.indexOf(fn);
@@ -236,7 +243,7 @@ export class Location implements OnDestroy {
 
   /** @internal */
   _notifyUrlChangeListeners(url: string = '', state: unknown) {
-    this._urlChangeListeners.forEach(fn => fn(url, state));
+    this._urlChangeListeners.forEach((fn) => fn(url, state));
   }
 
   /**
@@ -253,9 +260,15 @@ export class Location implements OnDestroy {
    * @returns Subscribed events.
    */
   subscribe(
-      onNext: (value: PopStateEvent) => void, onThrow?: ((exception: any) => void)|null,
-      onReturn?: (() => void)|null): SubscriptionLike {
-    return this._subject.subscribe({next: onNext, error: onThrow, complete: onReturn});
+    onNext: (value: PopStateEvent) => void,
+    onThrow?: ((exception: any) => void) | null,
+    onReturn?: (() => void) | null,
+  ): SubscriptionLike {
+    return this._subject.subscribe({
+      next: onNext,
+      error: onThrow ?? undefined,
+      complete: onReturn ?? undefined,
+    });
   }
 
   /**
@@ -294,10 +307,31 @@ export function createLocation() {
   return new Location(ɵɵinject(LocationStrategy as any));
 }
 
-function _stripBaseHref(baseHref: string, url: string): string {
-  return baseHref && url.startsWith(baseHref) ? url.substring(baseHref.length) : url;
+function _stripBasePath(basePath: string, url: string): string {
+  if (!basePath || !url.startsWith(basePath)) {
+    return url;
+  }
+  const strippedUrl = url.substring(basePath.length);
+  if (strippedUrl === '' || ['/', ';', '?', '#'].includes(strippedUrl[0])) {
+    return strippedUrl;
+  }
+  return url;
 }
 
 function _stripIndexHtml(url: string): string {
   return url.replace(/\/index.html$/, '');
+}
+
+function _stripOrigin(baseHref: string): string {
+  // DO NOT REFACTOR! Previously, this check looked like this:
+  // `/^(https?:)?\/\//.test(baseHref)`, but that resulted in
+  // syntactically incorrect code after Closure Compiler minification.
+  // This was likely caused by a bug in Closure Compiler, but
+  // for now, the check is rewritten to use `new RegExp` instead.
+  const isAbsoluteUrl = new RegExp('^(https?:)?//').test(baseHref);
+  if (isAbsoluteUrl) {
+    const [, pathname] = baseHref.split(/\/\/[^\/]+/);
+    return pathname;
+  }
+  return baseHref;
 }

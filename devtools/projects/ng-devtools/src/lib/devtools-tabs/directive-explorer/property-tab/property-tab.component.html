@@ -1,4 +1,33 @@
-<ng-property-tab-header [currentSelectedElement]="currentSelectedElement" (viewSource)="viewSource.emit()">
-</ng-property-tab-header>
-<ng-property-tab-body (inspect)="inspect.emit($event)" [currentSelectedElement]="currentSelectedElement">
-</ng-property-tab-body>
+@let currentSelectedElement = this.currentSelectedElement();
+
+@if (currentSelectedElement) {
+  <ng-property-tab-header
+    [currentSelectedElement]="currentSelectedElement"
+    (showSignalGraph)="showSignalGraph.emit(null)"
+  />
+
+  <div class="body">
+    @let directives = currentDirectives();
+    @if (directives && directives.length) {
+      <div class="explorer-panel">
+        @for (directive of directives; track $index) {
+          <ng-property-view
+            (inspect)="inspect.emit($event)"
+            (viewSource)="viewSource.emit(directive.name)"
+            (showSignalGraph)="showSignalGraph.emit($event)"
+            [directive]="directive"
+          />
+        }
+      </div>
+    }
+
+    @let hydration = currentSelectedElement.hydration;
+    @if (hydration && hydration.status === 'dehydrated') {
+      <div class="dehydrated-component">This component is dehydrated</div>
+    }
+
+    @if (currentSelectedElement.defer) {
+      <ng-defer-view [defer]="currentSelectedElement.defer" />
+    }
+  </div>
+}
